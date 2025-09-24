@@ -1044,6 +1044,7 @@ def arquivos_disponiveis():
     else:
         st.error(f"Pasta {arquivos_dir} não encontrada!")
     path = arquivos_dir
+    print(arquivos_2025)
     arquivos_dir = arquivos_2025    
     arq = []
     for i in arquivos_dir:        
@@ -1052,4 +1053,5 @@ def arquivos_disponiveis():
     return arquivos_dir
 
 if __name__ == "__main__":
+
     main()
