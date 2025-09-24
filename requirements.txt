@@ -1,0 +1,19 @@
+# Dependências do Processador de Extratos Excel - Sicred e Bradesco 2025
+
+# Framework web para interface
+streamlit>=1.28.0
+
+# Manipulação de dados
+pandas>=2.0.0
+
+# Leitura de arquivos Excel modernos (.xlsx)
+openpyxl>=3.1.0
+
+# Leitura de arquivos Excel antigos (.xls)
+xlrd>=2.0.0
+
+# Bibliotecas padrão do Python (não precisam ser instaladas)
+# os - manipulação do sistema operacional
+# re - expressões regulares
+# json - manipulação de arquivos JSON
+# datetime - manipulação de datas
