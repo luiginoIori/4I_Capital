@@ -1043,15 +1043,18 @@ def arquivos_disponiveis():
             st.write("Nenhum arquivo de 2025 encontrado.")
     else:
         st.error(f"Pasta {arquivos_dir} não encontrada!")
+    import pandas as pd
+
     path = arquivos_dir    
     arquivos_dir = arquivos_2025    
     df = pd.DataFrame(arquivos_dir]
-    df
+    st.dataframe(df)
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
