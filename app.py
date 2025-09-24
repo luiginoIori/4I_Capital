@@ -1048,7 +1048,8 @@ def arquivos_disponiveis():
     path = arquivos_dir    
     arq =[]
     for i in arquivos_2025:
-        arq = "ArquivosExtratos/"+i
+        x = "ArquivosExtratos/"+i
+        arq.append(x)
     df = pd.DataFrame(arq)
     st.dataframe(df)
     arquivos_dir = arq  
@@ -1059,6 +1060,7 @@ def arquivos_disponiveis():
 if __name__ == "__main__":
 
     main()
+
 
 
 
