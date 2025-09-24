@@ -1031,7 +1031,7 @@ def main():
   
 def arquivos_disponiveis():
     # Informações sobre os arquivos na pasta    
-    arquivos_dir = "ArquivosExtratos/"   
+    arquivos_dir = "ArquivosExtratos"   
     if os.path.exists(arquivos_dir):
         arquivos = os.listdir(arquivos_dir)        
         arquivos_2025 = [arq for arq in arquivos if "2025" in arq]                 
@@ -1055,5 +1055,6 @@ def arquivos_disponiveis():
 if __name__ == "__main__":
 
     main()
+
 
 
