@@ -1045,12 +1045,14 @@ def arquivos_disponiveis():
         st.error(f"Pasta {arquivos_dir} não encontrada!")
     path = arquivos_dir    
     arquivos_dir = arquivos_2025    
-    
+    df = pd.DataFrame(arquivos_dir]
+    df
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
