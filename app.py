@@ -1047,13 +1047,14 @@ def arquivos_disponiveis():
     arquivos_dir = arquivos_2025    
     arq = []
     for i in arquivos_dir:        
-        arq.append(str(i))
+        arq.append("ArquivosExtratos\"+str(i))
     arquivos_dir = arq
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
