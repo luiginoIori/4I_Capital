@@ -1049,16 +1049,17 @@ def arquivos_disponiveis():
     arq =[]
     for i in arquivos_2025:
         arq = "ArquivosExtratos/"+i
-    
+    df = pd.DataFrame(arq)
+    st.dataframe(df)
     arquivos_dir = arq  
     
-    df = pd.DataFrame(arquivos_dir)
-    st.dataframe(df)
+    
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
