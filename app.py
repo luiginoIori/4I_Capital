@@ -1043,18 +1043,18 @@ def arquivos_disponiveis():
             st.write("Nenhum arquivo de 2025 encontrado.")
     else:
         st.error(f"Pasta {arquivos_dir} não encontrada!")
-    path = arquivos_dir
-    print(arquivos_2025)
+    path = arquivos_dir    
     arquivos_dir = arquivos_2025    
     arq = []
     for i in arquivos_dir:        
-        arq.append(str(path)+"\\"+str(i))
+        arq.append(str(path)+"\"+str(i))
     arquivos_dir = arq
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
