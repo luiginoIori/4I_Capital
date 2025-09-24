@@ -1046,14 +1046,20 @@ def arquivos_disponiveis():
     import pandas as pd
 
     path = arquivos_dir    
-    arquivos_dir = arquivos_2025    
-    df = pd.DataFrame(arquivos_dir,path)
+    arq =[]
+    for i in arquivos_2025:
+        arq = "ArquivosExtratos/"+i
+    
+    arquivos_dir = arq  
+    
+    df = pd.DataFrame(arquivos_dir)
     st.dataframe(df)
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
