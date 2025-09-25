@@ -1,83 +1,330 @@
 {
-  "3I HOLDING LTDA": "CONTA CORRENTE",
-  "4I CAPITAL LTDA": "TRANSFERENCIA ENTRE CONTAS",
-  "ALLIANZ SEGUROS": "ADMINISTRATIVA",
-  "ANBIMA ASSOC BR": "ADMINISTRATIVA",
-  "ANDRE VIEIRA CAVALCANT": "ADMINISTRATIVA",
-  "APLIC FINANC FUNDOS": "APLICAÇÃO FINANCEIRA",
-  "AURIGA FUNDO DE INVESTIMENTO": "RECEITAS",
-  "BARRIER TERCEIRIZACAO": "ADMINISTRATIVA",
-  "BB CLAIM FUNDO DE INVESTIMENTO": "RECEITAS",
-  "CAJU": "DESPESAS COMERCIAIS",
-  "CEF MATRIZ": "ENCARGOS",
-  "CESTA DE RELACIONAMENTO": "DESPESAS FINANCEIRAS",
-  "CLICKSIGN GESTA": "DESPESAS COMERCIAIS",
-  "COMISSAO DE VAL": "ADMINISTRATIVA",
-  "CONDOMINIO EDIF": "ADMINISTRATIVA",
-  "CONSELHO REGION": "ADMINISTRATIVA",
-  "DANIEL CASAGRANDE": "ADMINISTRATIVA",
-  "CAIXA ECONOMICA FED": "ENCARGOS",
-  "DE PARCELA": "PMT EMPRESTIMOS",
-  "DEBITO ARRECADACAO DARFC0385": "IMPOSTOS",
-  "DEBITO CONVENIOS ID PORTO S": "DESPESAS FINANCEIRAS",
-  "DEBITO CONVENIOS PFSPG": "ENCARGOS",
-  "DEBITO CONVENIOS SEFAZSPG": "IMPOSTOS",
-  "DEBITO CONVENIOS VIVO": "ADMINISTRATIVA",
-  "DEBITO GPS GPS": "ENCARGOS",
-  "DEBITO TEDIB": "ADMINISTRATIVA",
-  "DEBITO TEDIB LEV DTVM LTDA": "ADMINISTRATIVA",
-  "DIANA CRISTINA FRANCEL": "FOLHA CLT",
-  "DOUBLE CHECK": "SOFTWARE",
-  "ECGN DOCE LATAM FIP": "RECEITAS",
-  "ELETRONICO TRIBUTO INTERNET PESS GPS": "ENCARGOS",
-  "ELETROPAULO MET": "ADMINISTRATIVA",
-  "ENEL DISTRIBUICAO S": "ADMINISTRATIVA",
-  "EVERGREEN FUNDO DE INVESTIMEN": "RECEITAS",
-  "EVOLUCAO AUDITORES": "ASSESSORIA JURIDICA",
-  "EXCELSIOR FUNDO DE INVESTIMENTO": "RECEITAS",
-  "GASTOS CARTAO DE CREDITO": "DESPESAS COMERCIAIS",
-  "GUSTAVO ANDRADE BARBOS": "FOLHA CLT",
-  "IGOR JEFFERSON LIMA C": "FOLHA PJ",
-  "JKC SOLUCOES SO": "SOFTWARE",
-  "JL MORAIS SOLUCOES": "ASSESSORIA CONTABIL",
-  "JOAO AUGUSTO DE MATTOS": "ADMINISTRATIVA",
-  "JOSE EDUARDO DE TOLEDO": "FOLHA CLT",
-  "IATA INTERNATIONAL": "ADIANTAMENTO A FORNECEDORES",
-  "KABUM": "ADMINISTRATIVA",
-  "KEYSTONE AMERIS FIM CP IE": "RECEITAS",
-  "LARISSA ALINE DE SOUZA": "FOLHA CLT",
-  "LIB OPERACAO CAGIRO": "EMPRÉSTIMOS",
-  "LOCALIZA FLEET S A": "DESPESAS COMERCIAIS",
-  "LUIGINO IORI FILHO": "DESPESAS COMERCIAIS",
-  "MAGALUPAY": "ADMINISTRATIVA",
-  "MILENA SANTOS PRADO": "FOLHA CLT",
-  "NDMP I FIDC": "RECEITAS",
-  "NEWE SEGUROS S": "ADMINISTRATIVA",
-  "NIO MEIOS DE PAGA": "RECEITAS",
-  "PAGAR ME INSTIT": "ADMINISTRATIVA",
-  "PLANO INT CAPITAL": "INVESTIMENTOS",
-  "PORTO SEGURO CIA": "ADMINISTRATIVA",
-  "PRAJNA": "SOFTWARE",
-  "PREFEITURA MUNICIPAL": "IMPOSTOS",
-  "QUASAR": "SOFTWARE",
-  "RECEITA FEDERAL": "IMPOSTOS",
-  "INVEST FACIL": "APLICAÇÃO FINANCEIRA",
-  "RENATO MARCHIORI DO AM": "FOLHA CLT",
-  "RESGATE APLIC FUNDOS": "APLICAÇÃO FINANCEIRA",
-  "S DE ALMEIDA AP": "ADMINISTRATIVA",
-  "SAMANTHA PITONDO EUFRA": "FOLHA CLT",
-  "SBC OPORTUNIDADE FUNDO DE": "RECEITAS",
-  "SECRETARIA DA FAZEN": "IMPOSTOS",
-  "SEGURO RESGATAVEL": "ADMINISTRATIVA",
-  "LIF DESENVOLVIMENTO": "FOLHA PJ",
-  "SPM ASSESSORIA EM D": "ADMINISTRATIVA",
-  "TARIFA BANCARIA": "DESPESAS FINANCEIRAS",
-  "TRIAGEM CONSULTORIA": "ASSESSORIA JURIDICA",
-  "V IORI ADVISORY": "FOLHA PJ",
-  "VANEY IORI": "DESPESAS COMERCIAIS",
-  "VLM REPRESENTACOES": "ADMINISTRATIVA",
-  "WHIZZ COMUNICACAO": "ADMINISTRATIVA",
-  "ZION CONSIGNADO FIDC": "RECEITAS",
-  "OPERACAO CAPITAL GIRO": "PMT EMPRESTIMOS",
-  "PLANNER CORRETORA DE VALORES": "RECEITAS"
+  "3I HOLDING LTDA": {
+    "classificacao": "CONTA CORRENTE",
+    "recorrencia": "N_RE"
+  },
+  "4I CAPITAL LTDA": {
+    "classificacao": "TRANSFERENCIA ENTRE CONTAS",
+    "recorrencia": "N_RE"
+  },
+  "ALLIANZ SEGUROS": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "ANBIMA ASSOC BR": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "ANDRE VIEIRA CAVALCANT": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "APLIC FINANC FUNDOS": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "AURIGA FUNDO DE INVESTIMENTO": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "BARRIER TERCEIRIZACAO": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "BB CLAIM FUNDO DE INVESTIMENTO": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "CAJU": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "RE"
+  },
+  "CEF MATRIZ": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  },
+  "CESTA DE RELACIONAMENTO": {
+    "classificacao": "DESPESAS FINANCEIRAS",
+    "recorrencia": "RE"
+  },
+  "CLICKSIGN GESTA": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "RE"
+  },
+  "COMISSAO DE VAL": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "CONDOMINIO EDIF": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "CONSELHO REGION": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "DANIEL CASAGRANDE": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "CAIXA ECONOMICA FED": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  },
+  "DE PARCELA": {
+    "classificacao": "PMT EMPRESTIMOS",
+    "recorrencia": "RE"
+  },
+  "DEBITO ARRECADACAO DARFC0385": {
+    "classificacao": "IMPOSTOS",
+    "recorrencia": "RE"
+  },
+  "DEBITO CONVENIOS ID PORTO S": {
+    "classificacao": "DESPESAS FINANCEIRAS",
+    "recorrencia": "RE"
+  },
+  "DEBITO CONVENIOS PFSPG": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  },
+  "DEBITO CONVENIOS SEFAZSPG": {
+    "classificacao": "IMPOSTOS",
+    "recorrencia": "RE"
+  },
+  "DEBITO CONVENIOS VIVO": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "DEBITO GPS GPS": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  },
+  "DEBITO TEDIB": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "DEBITO TEDIB LEV DTVM LTDA": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "DIANA CRISTINA FRANCEL": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "RE"
+  },
+  "DOUBLE CHECK": {
+    "classificacao": "SOFTWARE",
+    "recorrencia": "RE"
+  },
+  "ECGN DOCE LATAM FIP": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "ELETRONICO TRIBUTO INTERNET PESS GPS": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  },
+  "ELETROPAULO MET": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "ENEL DISTRIBUICAO S": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "EVERGREEN FUNDO DE INVESTIMEN": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "EVOLUCAO AUDITORES": {
+    "classificacao": "ASSESSORIA JURIDICA",
+    "recorrencia": "RE"
+  },
+  "EXCELSIOR FUNDO DE INVESTIMENTO": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "GASTOS CARTAO DE CREDITO": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "RE"
+  },
+  "GUSTAVO ANDRADE BARBOS": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "RE"
+  },
+  "IGOR JEFFERSON LIMA C": {
+    "classificacao": "FOLHA PJ",
+    "recorrencia": "RE"
+  },
+  "JKC SOLUCOES SO": {
+    "classificacao": "SOFTWARE",
+    "recorrencia": "RE"
+  },
+  "JL MORAIS SOLUCOES": {
+    "classificacao": "ASSESSORIA CONTABIL",
+    "recorrencia": "RE"
+  },
+  "JOAO AUGUSTO DE MATTOS": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "JOSE EDUARDO DE TOLEDO": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "RE"
+  },
+  "IATA INTERNATIONAL": {
+    "classificacao": "ADIANTAMENTO A FORNECEDORES",
+    "recorrencia": "N_RE"
+  },
+  "KABUM": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "KEYSTONE AMERIS FIM CP IE": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "LARISSA ALINE DE SOUZA": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "N_RE"
+  },
+  "LIB OPERACAO CAGIRO": {
+    "classificacao": "EMPRÉSTIMOS",
+    "recorrencia": "N_RE"
+  },
+  "LOCALIZA FLEET S A": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "RE"
+  },
+  "LUIGINO IORI FILHO": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "N_RE"
+  },
+  "MAGALUPAY": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "MILENA SANTOS PRADO": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "N_RE"
+  },
+  "NDMP I FIDC": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "NEWE SEGUROS S": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "NIO MEIOS DE PAGA": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "PAGAR ME INSTIT": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "PLANO INT CAPITAL": {
+    "classificacao": "INVESTIMENTOS",
+    "recorrencia": "RE"
+  },
+  "PORTO SEGURO CIA": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "PRAJNA": {
+    "classificacao": "SOFTWARE",
+    "recorrencia": "RE"
+  },
+  "PREFEITURA MUNICIPAL": {
+    "classificacao": "IMPOSTOS",
+    "recorrencia": "RE"
+  },
+  "QUASAR": {
+    "classificacao": "SOFTWARE",
+    "recorrencia": "RE"
+  },
+  "RECEITA FEDERAL": {
+    "classificacao": "IMPOSTOS",
+    "recorrencia": "RE"
+  },
+  "INVEST FACIL": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "RENATO MARCHIORI DO AM": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "RE"
+  },
+  "RESGATE APLIC FUNDOS": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "S DE ALMEIDA AP": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "SAMANTHA PITONDO EUFRA": {
+    "classificacao": "FOLHA CLT",
+    "recorrencia": "RE"
+  },
+  "SBC OPORTUNIDADE FUNDO DE": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "SECRETARIA DA FAZEN": {
+    "classificacao": "IMPOSTOS",
+    "recorrencia": "RE"
+  },
+  "SEGURO RESGATAVEL": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "LIF DESENVOLVIMENTO": {
+    "classificacao": "FOLHA PJ",
+    "recorrencia": "RE"
+  },
+  "SPM ASSESSORIA EM D": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "TARIFA BANCARIA": {
+    "classificacao": "DESPESAS FINANCEIRAS",
+    "recorrencia": "RE"
+  },
+  "TRIAGEM CONSULTORIA": {
+    "classificacao": "ASSESSORIA JURIDICA",
+    "recorrencia": "N_RE"
+  },
+  "V IORI ADVISORY": {
+    "classificacao": "FOLHA PJ",
+    "recorrencia": "RE"
+  },
+  "VANEY IORI": {
+    "classificacao": "DESPESAS COMERCIAIS",
+    "recorrencia": "N_RE"
+  },
+  "VLM REPRESENTACOES": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "WHIZZ COMUNICACAO": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "RE"
+  },
+  "ZION CONSIGNADO FIDC": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "OPERACAO CAPITAL GIRO": {
+    "classificacao": "PMT EMPRESTIMOS",
+    "recorrencia": "RE"
+  },
+  "PLANNER CORRETORA DE VALORES": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "RE"
+  },
+  "OCAIXA ECONOMICA FED": {
+    "classificacao": "ENCARGOS",
+    "recorrencia": "RE"
+  }
 }

@@ -8,6 +8,9 @@ from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 import xlrd
 
+
+#  https://github.com/luiginoIori/4I_Capital.git
+
 def is_date_formatted(cell):
     """Verifica se uma célula está formatada como data"""
     if cell.value is None:
@@ -131,8 +134,6 @@ def process_bradesco_files(arquivos, arq_data):
         
         if "2025" in arquivo and "Bradesco" in arquivo and (arquivo.endswith('.XLS') or arquivo.endswith('.XLSX') or arquivo.endswith('.xls') or arquivo.endswith('.xlsx')):
             arquivos_bradesco_2025.append(arquivo)
-            
-
     
     for arquivo in arquivos_bradesco_2025:
         caminho_arquivo = arquivo
@@ -370,7 +371,36 @@ def carregar_classificacoes():
     if os.path.exists(arquivo_classificacoes):
         try:
             with open(arquivo_classificacoes, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                dados = json.load(f)
+                
+                # Migrar formato antigo para novo formato se necessário
+                dados_migrados = {}
+                migrou = False
+                
+                for descricao, info in dados.items():
+                    if isinstance(info, str):
+                        # Formato antigo: só classificação
+                        dados_migrados[descricao] = {
+                            "classificacao": info,
+                            "recorrencia": None  # Será definida pelo usuário
+                        }
+                        migrou = True
+                    elif isinstance(info, dict):
+                        # Formato novo: já tem classificação e recorrência
+                        dados_migrados[descricao] = info
+                    else:
+                        # Formato inválido, criar novo
+                        dados_migrados[descricao] = {
+                            "classificacao": "NÃO CLASSIFICADO",
+                            "recorrencia": None
+                        }
+                        migrou = True
+                
+                # Se houve migração, salvar o novo formato
+                if migrou:
+                    salvar_classificacoes(dados_migrados)
+                
+                return dados_migrados
         except:
             return {}
     return {}
@@ -385,6 +415,18 @@ def salvar_classificacoes(classificacoes):
         return True
     except:
         return False
+
+
+def verificar_classificacoes_sem_recorrencia():
+    """Verifica se existem classificações sem recorrência definida"""
+    classificacoes = carregar_classificacoes()
+    sem_recorrencia = []
+    
+    for descricao, info in classificacoes.items():
+        if isinstance(info, dict) and info.get('recorrencia') is None:
+            sem_recorrencia.append(descricao)
+    
+    return sem_recorrencia
 
 
 def obter_descricoes_unicas(dados_completos):
@@ -424,11 +466,78 @@ def formulario_classificacao(dados_completos):
         "INVESTIMENTOS",
         "DESPESAS IMÓVEL",        
         "ADIANTAMENTO A FORNECEDORES"
-        
     ]
+    
+    # Opções de recorrência
+    opcoes_recorrencia = ["", "RE", "N_RE"]
     
     # Carregar classificações existentes
     classificacoes_existentes = carregar_classificacoes()
+    
+    # Verificar classificações sem recorrência definida
+    classificacoes_sem_recorrencia = verificar_classificacoes_sem_recorrencia()
+    
+    # Mostrar alerta se existem classificações sem recorrência
+    if classificacoes_sem_recorrencia:
+        st.warning(f"⚠️ **{len(classificacoes_sem_recorrencia)} classificações precisam ter a recorrência definida (RE/N_RE)!**")
+        
+        # Formulário para definir recorrências em lote
+        st.subheader("🔄 Definir Recorrência das Classificações Existentes")
+        
+        with st.expander("Clique aqui para definir as recorrências", expanded=True):
+            with st.form("recorrencia_form"):
+                st.write("**Defina se cada classificação é Recorrente (RE) ou Não Recorrente (N_RE):**")
+                
+                recorrencias_update = {}
+                
+                # Dividir em colunas para melhor layout
+                num_cols = 2
+                cols = st.columns(num_cols)
+                
+                for i, descricao in enumerate(classificacoes_sem_recorrencia):
+                    col = cols[i % num_cols]
+                    
+                    with col:
+                        info_atual = classificacoes_existentes[descricao]
+                        classificacao_atual = info_atual.get('classificacao', 'NÃO CLASSIFICADO') if isinstance(info_atual, dict) else info_atual
+                        
+                        st.write(f"**{descricao}**")
+                        st.write(f"*Classificação: {classificacao_atual}*")
+                        
+                        recorrencia = st.selectbox(
+                            "Recorrência:",
+                            ["Selecione...", "RE (Recorrente)", "N_RE (Não Recorrente)"],
+                            key=f"rec_{i}"
+                        )
+                        
+                        if recorrencia != "Selecione...":
+                            valor_recorrencia = "RE" if recorrencia.startswith("RE") else "N_RE"
+                            recorrencias_update[descricao] = valor_recorrencia
+                        
+                        st.markdown("---")
+                
+                if st.form_submit_button("💾 Salvar Recorrências"):
+                    if recorrencias_update:
+                        # Atualizar classificações com recorrências
+                        for desc, rec in recorrencias_update.items():
+                            if desc in classificacoes_existentes:
+                                if isinstance(classificacoes_existentes[desc], str):
+                                    # Converter formato antigo para novo
+                                    classificacoes_existentes[desc] = {
+                                        "classificacao": classificacoes_existentes[desc],
+                                        "recorrencia": rec
+                                    }
+                                else:
+                                    # Atualizar formato novo
+                                    classificacoes_existentes[desc]["recorrencia"] = rec
+                        
+                        if salvar_classificacoes(classificacoes_existentes):
+                            st.success(f"✅ {len(recorrencias_update)} recorrências salvas com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Erro ao salvar recorrências!")
+                    else:
+                        st.warning("⚠️ Selecione pelo menos uma recorrência para salvar.")
     
     # Obter descrições únicas
     descricoes_unicas = obter_descricoes_unicas(dados_completos)
@@ -450,13 +559,27 @@ def formulario_classificacao(dados_completos):
         )
         
         if descricao_selecionada != "Selecione uma descrição para editar...":
-            classificacao_atual = classificacoes_existentes[descricao_selecionada]
+            info_atual = classificacoes_existentes[descricao_selecionada]
+            
+            # Extrair classificação e recorrência atuais
+            if isinstance(info_atual, dict):
+                classificacao_atual = info_atual.get('classificacao', '')
+                recorrencia_atual = info_atual.get('recorrencia', '')
+            else:
+                # Formato antigo - só classificação
+                classificacao_atual = info_atual
+                recorrencia_atual = ''
             
             col1, col2 = st.columns([2, 1])
             
             with col1:
                 st.write(f"**Descrição:** {descricao_selecionada}")
                 st.write(f"**Classificação atual:** {classificacao_atual}")
+                if recorrencia_atual:
+                    recorrencia_desc = "Recorrente" if recorrencia_atual == "RE" else "Não Recorrente"
+                    st.write(f"**Recorrência atual:** {recorrencia_atual} ({recorrencia_desc})")
+                else:
+                    st.write(f"**Recorrência atual:** *Não definida*")
                 
                 # Dropdown para nova classificação
                 try:
@@ -470,16 +593,54 @@ def formulario_classificacao(dados_completos):
                     index=index_atual,
                     key="new_classification"
                 )
+                
+                # Dropdown para nova recorrência
+                try:
+                    if recorrencia_atual:
+                        index_rec = opcoes_recorrencia.index(recorrencia_atual)
+                    else:
+                        index_rec = 0
+                except ValueError:
+                    index_rec = 0
+                
+                nova_recorrencia = st.selectbox(
+                    "Recorrência:",
+                    ["", "RE (Recorrente)", "N_RE (Não Recorrente)"],
+                    index=index_rec if recorrencia_atual else 0,
+                    key="new_recurrence"
+                )
             
             with col2:
                 st.write("")
                 st.write("")
                 
                 if st.button("💾 Atualizar Classificação", key="update_btn"):
-                    if nova_classificacao != classificacao_atual:
-                        classificacoes_existentes[descricao_selecionada] = nova_classificacao
+                    # Extrair valor da recorrência selecionada
+                    valor_recorrencia = ""
+                    if nova_recorrencia.startswith("RE"):
+                        valor_recorrencia = "RE"
+                    elif nova_recorrencia.startswith("N_RE"):
+                        valor_recorrencia = "N_RE"
+                    
+                    # Verificar se houve alteração
+                    alterou_classificacao = nova_classificacao != classificacao_atual
+                    alterou_recorrencia = valor_recorrencia != recorrencia_atual
+                    
+                    if alterou_classificacao or alterou_recorrencia:
+                        # Criar nova estrutura de dados
+                        classificacoes_existentes[descricao_selecionada] = {
+                            "classificacao": nova_classificacao,
+                            "recorrencia": valor_recorrencia if valor_recorrencia else None
+                        }
+                        
                         if salvar_classificacoes(classificacoes_existentes):
-                            st.success(f"✅ Classificação atualizada para: **{nova_classificacao}**")
+                            msg_sucesso = "✅ Atualizado:"
+                            if alterou_classificacao:
+                                msg_sucesso += f" Classificação: **{nova_classificacao}**"
+                            if alterou_recorrencia:
+                                rec_desc = "Recorrente" if valor_recorrencia == "RE" else "Não Recorrente" if valor_recorrencia == "N_RE" else "Não definida"
+                                msg_sucesso += f" Recorrência: **{rec_desc}**"
+                            st.success(msg_sucesso)
                             st.rerun()
                         else:
                             st.error("❌ Erro ao salvar a atualização!")
@@ -502,8 +663,21 @@ def formulario_classificacao(dados_completos):
         # Mostrar classificações existentes
         if st.checkbox("Mostrar todas as classificações cadastradas"):
             st.write("**Classificações cadastradas:**")
-            for desc, classif in sorted(classificacoes_existentes.items()):
-                st.write(f"• {desc} → **{classif}**")
+            for desc, info in sorted(classificacoes_existentes.items()):
+                if isinstance(info, dict):
+                    classificacao = info.get('classificacao', 'NÃO CLASSIFICADO')
+                    recorrencia = info.get('recorrencia', 'Não definida')
+                    rec_desc = ""
+                    if recorrencia == "RE":
+                        rec_desc = " (Recorrente)"
+                    elif recorrencia == "N_RE":
+                        rec_desc = " (Não Recorrente)"
+                    elif recorrencia is None or recorrencia == "Não definida":
+                        rec_desc = " ⚠️ (Recorrência não definida)"
+                    st.write(f"• {desc} → **{classificacao}**{rec_desc}")
+                else:
+                    # Formato antigo
+                    st.write(f"• {desc} → **{info}** ⚠️ (Recorrência não definida)")
         return
     
     st.subheader("➕ Classificar Novas Descrições")
@@ -522,6 +696,7 @@ def formulario_classificacao(dados_completos):
             
             with col:
                 st.write(f"**Descrição:** {descricao}")
+                
                 classificacao = st.selectbox(
                     "Classificação:",
                     ["Selecione..."] + opcoes_classificacao,
@@ -529,8 +704,19 @@ def formulario_classificacao(dados_completos):
                     index=0
                 )
                 
-                if classificacao != "Selecione...":
-                    classificacoes_novas[descricao] = classificacao
+                recorrencia = st.selectbox(
+                    "Recorrência:",
+                    ["Selecione...", "RE (Recorrente)", "N_RE (Não Recorrente)"],
+                    key=f"rec_{i}",
+                    index=0
+                )
+                
+                if classificacao != "Selecione..." and recorrencia != "Selecione...":
+                    valor_recorrencia = "RE" if recorrencia.startswith("RE") else "N_RE"
+                    classificacoes_novas[descricao] = {
+                        "classificacao": classificacao,
+                        "recorrencia": valor_recorrencia
+                    }
                 
                 st.write("---")
         
@@ -565,7 +751,17 @@ def aplicar_classificacoes(dados_completos):
     for registro in dados_completos:
         if len(registro) >= 3:
             data, descricao, valor = registro[0], registro[1], registro[2]
-            classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+            
+            # Obter informação da classificação
+            info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+            
+            # Extrair apenas a classificação (formato novo ou antigo)
+            if isinstance(info_classificacao, dict):
+                classificacao = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                # Formato antigo - já é a classificação
+                classificacao = info_classificacao
+            
             # Adiciona classificação como quarta coluna
             dados_classificados.append((data, descricao, valor, classificacao))
         else:
@@ -716,9 +912,7 @@ def criar_tabela_mensal(dados_completos):
                     mes = 1  # Default
                 
                 # Converter valor para float
-                if isinstance(valor, str):
-                   
-                
+                if isinstance(valor, str):                
                     # Remove caracteres não numéricos exceto vírgula, ponto e sinal negativo
                     valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
                     valor_limpo = valor_limpo.replace(',', '.')
@@ -730,9 +924,7 @@ def criar_tabela_mensal(dados_completos):
                         valor_float = 0.0
                         
                 else:
-                    valor_float = float(valor) if valor else 0.0
-                #print(valor_float)
-                # Organizar dados por descrição
+                    valor_float = float(valor) if valor else 0.0                
                 if descricao not in tabela_dados:                    
                     tabela_dados[descricao] = {i: 0.0 for i in range(1, 13)}  # Meses 1-12
                 
@@ -742,7 +934,7 @@ def criar_tabela_mensal(dados_completos):
             except Exception as e:
                 print(f"Erro processando registro: {e}")
                 continue
-    print(tabela_dados)
+    
     # Criar HTML da tabela - versão simplificada
     meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
                    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -783,7 +975,14 @@ def criar_tabela_mensal(dados_completos):
         total_geral_receitas = 0.0
         
         for desc in tabela_dados.keys():
-            classificacao_desc = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            
+            # Extrair apenas a classificação
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+                
             if classificacao_desc in classificacoes_receitas:
                 dados_mes = tabela_dados[desc]
                 for mes in range(1, 13):
@@ -798,7 +997,14 @@ def criar_tabela_mensal(dados_completos):
         total_geral_despesas = 0.0
         
         for desc in tabela_dados.keys():
-            classificacao_desc = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            
+            # Extrair apenas a classificação
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+                
             if classificacao_desc in subcategorias_despesas:
                 dados_mes = tabela_dados[desc]
                 for mes in range(1, 13):
@@ -863,7 +1069,7 @@ def criar_tabela_mensal(dados_completos):
     
     # Adicionar linha de total das receitas
     html += f'<tr style="background-color: rgba(144, 238, 144, 0.6); font-weight: bold; border: 2px solid #90EE90;">'
-    html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold; color: #000080;">💰 TOTAL RECEITAS/APLICAÇÕES</td>'
+    html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold; color: #000080;">💰 RECEITAS/APLICAÇÕES/EMPRESTIMOS</td>'
     html += f'<td style="padding: 8px; color: #000080; text-align: center; font-size: 18px; font-weight: bold;">{int(total_geral_receitas):,}</td>'
     
     # Adicionar totais de cada mês para receitas
@@ -876,9 +1082,19 @@ def criar_tabela_mensal(dados_completos):
     
     html += '</tr>'
     
+    # Adicionar linha de divisão mais grossa entre RECEITAS/APLICAÇÕES e dados detalhados
+    html += f'<tr style="height: 8px; border: none;"><td colspan="14" style="background-color: #00CED1; height: 8px; border: none; padding: 0; border-top: 3px solid #008B8B; border-bottom: 2px solid #008B8B;"></td></tr>'
+    
     # Função para obter índice da classificação para ordenação
     def obter_indice_classificacao(descricao):
-        classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        
+        # Extrair apenas a classificação (formato novo ou antigo)
+        if isinstance(info_classificacao, dict):
+            classificacao = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+        else:
+            classificacao = info_classificacao
+            
         try:
             return ordem_classificacoes.index(classificacao)
         except ValueError:
@@ -896,7 +1112,14 @@ def criar_tabela_mensal(dados_completos):
         # Se é DESPESAS, somar todas as subcategorias
         if classificacao == "DESPESAS":
             for desc in descricoes_ordenadas:
-                classificacao_desc = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                
+                # Extrair apenas a classificação
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                    
                 if classificacao_desc in subcategorias_despesas:
                     dados_mes = tabela_dados[desc]
                     for mes in range(1, 13):
@@ -905,7 +1128,14 @@ def criar_tabela_mensal(dados_completos):
         else:
             # Lógica normal para outras classificações
             for desc in descricoes_ordenadas:
-                classificacao_desc = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                
+                # Extrair apenas a classificação
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                    
                 if classificacao_desc == classificacao:
                     dados_mes = tabela_dados[desc]
                     for mes in range(1, 13):
@@ -920,7 +1150,13 @@ def criar_tabela_mensal(dados_completos):
     
     for descricao in descricoes_ordenadas:
         # Obter classificação atual
-        classificacao_atual = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        
+        # Extrair apenas a classificação
+        if isinstance(info_classificacao, dict):
+            classificacao_atual = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+        else:
+            classificacao_atual = info_classificacao
         
         # Se é uma subcategoria de DESPESAS e ainda não foi adicionada a linha DESPESAS
         if classificacao_atual in subcategorias_despesas and not despesas_ja_adicionada:
@@ -929,7 +1165,7 @@ def criar_tabela_mensal(dados_completos):
             
             cor_total_despesas = 'red' if total_despesas < 0 else 'green'
             html += f'<tr style="background-color: rgba(64, 224, 208, 0.3); font-weight: bold; border: 2px solid rgba(64, 224, 208, 0.8);">'
-            html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold;">💰 DESPESAS (TOTAL)</td>'
+            html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold;">💰 DESPESAS MENSAIS</td>'
             html += f'<td style="padding: 8px; color: {cor_total_despesas}; text-align: center; font-size: 18px; font-weight: bold;">{int(total_despesas):,}</td>'
             
             # Adicionar totais de cada mês para DESPESAS
@@ -975,36 +1211,48 @@ def criar_tabela_mensal(dados_completos):
         total_descricao = sum(dados_mes.values())
         
         cor_total = 'red' if total_descricao < 0 else 'green'
-        html += f'<tr><td style="padding: 8px;">{descricao}</td>'
-        html += f'<td style="padding: 8px; color: {cor_total}; text-align: center;">{int(total_descricao):,}</td>'
+        html += f'<tr style="height: 30px;"><td style="padding: 4px 8px;">{descricao}</td>'
+        html += f'<td style="padding: 4px 8px; color: {cor_total}; text-align: center;">{int(total_descricao):,}</td>'
         
         # Adicionar valores de cada mês
         for mes in range(1, 13):
             valor = dados_mes[mes]
             if valor != 0:
                 cor_valor = 'red' if valor < 0 else 'black'
-                html += f'<td style="padding: 8px; color: {cor_valor}; text-align: center;">{int(valor):,}</td>'
+                html += f'<td style="padding: 4px 8px; color: {cor_valor}; text-align: center;">{int(valor):,}</td>'
             else:
-                html += '<td style="padding: 8px; text-align: center;">-</td>'
+                html += '<td style="padding: 4px 8px; text-align: center;">-</td>'
         
         html += '</tr>'
     
     html += """
     </table>
-    """
-    
+    """    
     return html
 
 
 def main():
     # Configurar layout da página para usar toda a largura
     st.set_page_config(
-        page_title="Processador de Extratos Excel",
+        page_title="Processador de Extratos Excel - 4I Capital Ltda.",
         layout="wide",
         initial_sidebar_state="collapsed"
     )
     
-    st.title("Processador de Extratos Excel - Sicred e Bradesco 2025")
+    # Título centralizado, grande e em azul turquesa
+    st.markdown("""
+    <h1 style='text-align: center; color: #40E0D0; font-size: 3rem; font-weight: bold; margin-bottom: 1rem;'>
+        Processador de Extratos Excel - Sicred e Bradesco 2025 - 4I Capital Ltda.
+    </h1>
+    """, unsafe_allow_html=True)
+    
+    # Verificar classificações sem recorrência na inicialização
+    classificacoes_sem_recorrencia = verificar_classificacoes_sem_recorrencia()
+    
+    # Se existem classificações sem recorrência, mostrar alerta no topo
+    if classificacoes_sem_recorrencia:
+        st.error(f"🚨 **ATENÇÃO:** {len(classificacoes_sem_recorrencia)} classificação(ões) precisam ter a recorrência definida (RE/N_RE)!")
+        st.warning("⬇️ **Role para baixo até a seção 'Classificação de Descrições' para definir as recorrências.**")
     
     arquivos = arquivos_disponiveis()    
     # Botão para processar arquivos
@@ -1015,14 +1263,7 @@ def main():
     
     # Formulário de classificação das descrições
     if dados_completos:
-        formulario_classificacao(dados_completos)
-    
-    # Aplicar classificações e mostrar resumo
-    # if dados_completos:
-    #     dados_classificados = aplicar_classificacoes(dados_completos)
-    #     tabela_classificacao = criar_tabela_por_classificacao(dados_classificados)
-    #     if tabela_classificacao:
-    #         st.markdown(tabela_classificacao, unsafe_allow_html=True)
+        formulario_classificacao(dados_completos)    
     
     # Criar e exibir tabela HTML mensal
     if dados_completos:
@@ -1034,7 +1275,8 @@ def main():
   
 def arquivos_disponiveis():
     # Informações sobre os arquivos na pasta    
-    arquivos_dir = f".\\ArquivosExtratos"   
+    arquivos_dir = f".\\ArquivosExtratos"  
+    
     if os.path.exists(arquivos_dir):
         arquivos = os.listdir(arquivos_dir)        
         arquivos_2025 = [arq for arq in arquivos if "2025" in arq]                 
@@ -1047,11 +1289,11 @@ def arquivos_disponiveis():
     else:
         st.error(f"Pasta {arquivos_dir} não encontrada!")
     path = arquivos_dir
-    arquivos_dir = arquivos_2025    
-    arq = []
-    for i in arquivos_dir:        
-        arq.append(str(path)+"\\"+str(i))
-    arquivos_dir = arq
+    arq =[]
+    for i in arquivos_2025:
+        x = "ArquivosExtratos/"+i
+        arq.append(x)    
+    arquivos_dir = arq  
     return arquivos_dir
 
 if __name__ == "__main__":
