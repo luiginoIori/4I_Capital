@@ -1,16 +1,12 @@
-import subprocess
 import streamlit as st
-from PIL import Image
+import pandas as pd
 import os
-import csv
-import glob
-import datetime
-import base64
-import openpyxl
-import webbrowser
-import locale
-import os
-import csv
+import re
+import json
+from datetime import datetime
+from openpyxl import load_workbook
+from openpyxl.utils import column_index_from_string
+import xlrd
 
 
 descricoes = ['INSTALAÇÕES','Entradas','Receitas','Aporte','Despesas','OPEX ADM', "OPEX OPERACIONAL",'CAPEX','Impostos']
@@ -360,6 +356,7 @@ elif page == "Extratos Bancários":
         nome_pdf = os.path.basename(pdf)
         with open(pdf, "rb") as f:
             st.download_button(f"Baixar {nome_pdf}", f, file_name=nome_pdf)
+
 
 
 
