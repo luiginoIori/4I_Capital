@@ -7,13 +7,11 @@ import glob
 import datetime
 import base64
 import openpyxl
-import matplotlib.pyplot as plt
 import webbrowser
 import locale
-import matplotlib.image as mpimg
 import os
 import csv
-import plotly.graph_objects as go
+
 
 descricoes = ['INSTALAÇÕES','Entradas','Receitas','Aporte','Despesas','OPEX ADM', "OPEX OPERACIONAL",'CAPEX','Impostos']
 def get_dados_graficos():
@@ -362,5 +360,6 @@ elif page == "Extratos Bancários":
         nome_pdf = os.path.basename(pdf)
         with open(pdf, "rb") as f:
             st.download_button(f"Baixar {nome_pdf}", f, file_name=nome_pdf)
+
 
 
