@@ -2048,7 +2048,7 @@ def main():
   
 def arquivos_disponiveis():
     # Informações sobre os arquivos na pasta    
-    arquivos_dir = f".\\ArquivosExtratos"  
+    arquivos_dir = "\ArquivosExtratos"  
     
     if os.path.exists(arquivos_dir):
         arquivos = os.listdir(arquivos_dir)        
@@ -2070,4 +2070,5 @@ def arquivos_disponiveis():
     return arquivos_dir
 
 if __name__ == "__main__":
+
     main()
