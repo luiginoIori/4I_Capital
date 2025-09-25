@@ -349,6 +349,8 @@ def descricao(df_bradesco):
                 # OPERACAO CAPITAL GIRO para OPERACAO CAPITAL GIRO
                 elif "CAPITAL GIRO" in descricao_padronizada.upper():
                     descricao_padronizada = "OPERACAO CAPITAL GIRO"
+                elif "CEF MATRIZ" in descricao_padronizada.upper():
+                    descricao_padronizada = "OCAIXA ECONOMICA FED"
                 
                 # Atualizar tupla com descrição padronizada
                 if descricao_padronizada != str(nova_tupla[1]):
@@ -364,6 +366,27 @@ def descricao(df_bradesco):
         
     return df_bradesco_atualizado
 
+
+def carregar_valores_manuais():
+    """Carrega valores manuais salvos do arquivo JSON"""
+    arquivo_valores = 'valores_manuais_projecao.json'
+    if os.path.exists(arquivo_valores):
+        try:
+            with open(arquivo_valores, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def salvar_valores_manuais(valores_manuais):
+    """Salva valores manuais no arquivo JSON"""
+    arquivo_valores = 'valores_manuais_projecao.json'
+    try:
+        with open(arquivo_valores, 'w', encoding='utf-8') as f:
+            json.dump(valores_manuais, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
 
 def carregar_classificacoes():
     """Carrega classificações existentes do arquivo JSON"""
@@ -440,8 +463,6 @@ def obter_descricoes_unicas(dados_completos):
 
 def formulario_classificacao(dados_completos):
     """Cria formulário para classificação das descrições"""
-    st.markdown("---")
-    st.subheader("📝 Classificação de Descrições")
     
     # Opções de classificação disponíveis
     opcoes_classificacao = [
@@ -770,6 +791,83 @@ def aplicar_classificacoes(dados_completos):
     return dados_classificados
 
 
+def calcular_medias_recorrentes(dados_completos):
+    """Calcula médias mensais apenas para itens com recorrencia='RE'"""
+    classificacoes = carregar_classificacoes()
+    
+    # Dicionário para armazenar os dados apenas de itens recorrentes
+    dados_recorrentes = {}
+    
+    # Processar cada registro
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            # Verificar se é recorrente
+            info_classificacao = classificacoes.get(str(descricao).strip())
+            if info_classificacao and isinstance(info_classificacao, dict):
+                recorrencia = info_classificacao.get('recorrencia')
+                if recorrencia == 'RE':  # Apenas itens recorrentes
+                    
+                    # Extrair mês da data
+                    try:
+                        if isinstance(data, datetime):
+                            mes = data.month
+                        elif isinstance(data, str):
+                            # Tentar diferentes formatos de data
+                            for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                                try:
+                                    data_obj = datetime.strptime(data, formato)
+                                    mes = data_obj.month
+                                    break
+                                except:
+                                    continue
+                            else:
+                                mes = 1  # Default para janeiro se não conseguir parsear
+                        else:
+                            mes = 1  # Default
+                        
+                        # Converter valor para float
+                        if isinstance(valor, str):                
+                            # Remove caracteres não numéricos exceto vírgula, ponto e sinal negativo
+                            valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                            valor_limpo = valor_limpo.replace(',', '.')
+                            
+                            try:
+                                valor_float = float(valor_limpo)
+                            except:
+                                valor_float = 0.0
+                        else:
+                            valor_float = float(valor) if valor else 0.0
+                        
+                        # Inicializar estrutura se necessário
+                        if descricao not in dados_recorrentes:                    
+                            dados_recorrentes[descricao] = {i: [] for i in range(1, 13)}  # Lista para cada mês
+                        
+                        # Adicionar valor à lista do mês correspondente                
+                        dados_recorrentes[descricao][mes].append(valor_float)
+                        
+                    except Exception as e:
+                        print(f"Erro processando registro recorrente: {e}")
+                        continue
+    
+    # Calcular médias para cada descrição e mês
+    medias_recorrentes = {}
+    for descricao, meses_data in dados_recorrentes.items():
+        medias_recorrentes[descricao] = {}
+        for mes in range(1, 13):
+            valores = meses_data[mes]
+            if valores:
+                # Calcular média dos valores do mês
+                media = sum(valores) / len(valores)
+                medias_recorrentes[descricao][mes] = media
+            else:
+                # Se não há dados para o mês, usar 0
+                medias_recorrentes[descricao][mes] = 0.0
+    
+    return medias_recorrentes
+
+
 def criar_tabela_por_classificacao(dados_classificados):
     """Cria tabela resumo por classificação"""
     if not dados_classificados:
@@ -829,6 +927,570 @@ def criar_tabela_por_classificacao(dados_classificados):
     html += """
     </tbody>
     </table>
+    </div>
+    """
+    
+    return html
+
+
+def criar_tabela_fluxo_futuro(dados_completos):
+    """Cria tabela HTML de fluxo futuro baseada nas médias dos itens recorrentes - Seguindo estrutura da tabela mensal"""
+    
+    # Calcular médias dos itens recorrentes
+    medias_recorrentes = calcular_medias_recorrentes(dados_completos)
+    
+    # Carregar valores manuais salvos
+    valores_manuais = carregar_valores_manuais()
+    
+    if not medias_recorrentes:
+        return """
+        <div style="margin-top: 20px;">
+        <h3>📈 Projeção de Fluxo Futuro - Próximos 12 Meses (Itens Recorrentes)</h3>
+        <p style="color: #666; font-style: italic;">Nenhum item recorrente encontrado para projeção.</p>
+        </div>
+        """
+    
+    # Usar mesma estrutura da tabela mensal
+    ordem_classificacoes = [
+        "RECEITAS",
+        "EMPRÉSTIMOS",
+        "REEMBOLSO", 
+        "CONTA CORRENTE",
+        "APLICAÇÃO FINANCEIRA",
+        "TRANSFERENCIA ENTRE CONTAS",
+        "DESPESAS",
+        "IMPOSTOS",
+        "FOLHA CLT",
+        "FOLHA PJ",
+        "ENCARGOS",
+        "ADMINISTRATIVA",
+        "ASSESSORIA JURIDICA",
+        "ASSESSORIA CONTABIL",
+        "DESPESAS FINANCEIRAS",
+        "DESPESAS COMERCIAIS",
+        "SOFTWARE",
+        "PMT EMPRESTIMOS",
+        "INVESTIMENTOS",
+        "DESPESAS IMÓVEL",        
+        "ADIANTAMENTO A FORNECEDORES",
+        "NÃO CLASSIFICADO"
+    ]
+    
+    # Subcategorias de DESPESAS
+    subcategorias_despesas = [
+        "IMPOSTOS",
+        "FOLHA CLT",
+        "FOLHA PJ",
+        "ENCARGOS",
+        "ADMINISTRATIVA",
+        "ASSESSORIA JURIDICA",
+        "ASSESSORIA CONTABIL",
+        "DESPESAS FINANCEIRAS",
+        "DESPESAS COMERCIAIS",
+        "SOFTWARE",
+        "PMT EMPRESTIMOS",
+        "INVESTIMENTOS",
+        "DESPESAS IMÓVEL",
+        "ADIANTAMENTO A FORNECEDORES"
+    ]
+    
+    # Classificações de receitas
+    classificacoes_receitas = [
+        "RECEITAS",
+        "EMPRÉSTIMOS",
+        "REEMBOLSO",
+        "CONTA CORRENTE",
+        "APLICAÇÃO FINANCEIRA",
+        "TRANSFERENCIA ENTRE CONTAS"
+    ]
+    
+    # Carregar classificações
+    classificacoes = carregar_classificacoes()
+    
+    # Nomes dos próximos 12 meses
+    from datetime import datetime, timedelta
+    import calendar
+    
+    meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    # Função para obter índice da classificação para ordenação (igual à tabela mensal)
+    def obter_indice_classificacao_futuro(descricao):
+        info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        
+        # Extrair apenas a classificação
+        if isinstance(info_classificacao, dict):
+            classificacao = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+        else:
+            classificacao = info_classificacao
+            
+        try:
+            return ordem_classificacoes.index(classificacao)
+        except ValueError:
+            return len(ordem_classificacoes)  # Colocar no final se não encontrar
+    
+    # Ordenar descrições por classificação (igual à tabela mensal)
+    descricoes_ordenadas = sorted(medias_recorrentes.keys(), 
+                                 key=lambda desc: (obter_indice_classificacao_futuro(desc), desc))
+    
+    # Calcular totais das receitas projetadas (igual à tabela mensal)
+    def calcular_totais_receitas_futuras():
+        totais_mes_receitas = {i: 0.0 for i in range(1, 13)}  # Meses 1-12
+        total_geral_receitas = 0.0
+        
+        for desc in medias_recorrentes.keys():
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            
+            # Extrair apenas a classificação
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+                
+            if classificacao_desc in classificacoes_receitas:
+                # Verificar se há valor manual para esta descrição
+                valor_manual = valores_manuais.get(str(desc), None)
+                
+                if valor_manual:
+                    # Usar valor manual como valor mensal (não dividir por 12)
+                    valor_mensal = float(valor_manual)
+                    for mes in range(1, 13):
+                        totais_mes_receitas[mes] += valor_mensal
+                    total_geral_receitas += float(valor_manual) * 12
+                else:
+                    # Usar valores calculados
+                    for mes in range(1, 13):
+                        valor_medio = medias_recorrentes[desc].get(mes, 0.0)
+                        totais_mes_receitas[mes] += valor_medio
+                    total_geral_receitas += sum(medias_recorrentes[desc].values())
+        
+        return totais_mes_receitas, total_geral_receitas
+    
+    # Calcular totais das despesas projetadas (igual à tabela mensal)
+    def calcular_totais_despesas_futuras():
+        totais_mes_despesas = {i: 0.0 for i in range(1, 13)}  # Meses 1-12
+        total_geral_despesas = 0.0
+        
+        for desc in medias_recorrentes.keys():
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            
+            # Extrair apenas a classificação
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+                
+            if classificacao_desc in subcategorias_despesas:
+                # Verificar se há valor manual para esta descrição
+                valor_manual = valores_manuais.get(str(desc), None)
+                
+                if valor_manual:
+                    # Usar valor manual como valor mensal (não dividir por 12)
+                    valor_mensal = float(valor_manual)
+                    for mes in range(1, 13):
+                        totais_mes_despesas[mes] += valor_mensal
+                    total_geral_despesas += float(valor_manual) * 12
+                else:
+                    # Usar valores calculados
+                    for mes in range(1, 13):
+                        valor_medio = medias_recorrentes[desc].get(mes, 0.0)
+                        totais_mes_despesas[mes] += valor_medio
+                    total_geral_despesas += sum(medias_recorrentes[desc].values())
+        
+        return totais_mes_despesas, total_geral_despesas
+    
+    # Calcular totais das receitas e despesas
+    totais_mes_receitas, total_geral_receitas = calcular_totais_receitas_futuras()
+    totais_mes_despesas, total_geral_despesas = calcular_totais_despesas_futuras()
+    
+    # CALCULAR SALDO INICIAL BASEADO NO ÚLTIMO SALDO DA TABELA MENSAL
+    # Primeiro, calcular os dados da tabela mensal para obter o último saldo
+    # Replicar a lógica da tabela mensal original
+    tabela_dados = {}
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            try:
+                if isinstance(data, datetime):
+                    mes = data.month
+                elif isinstance(data, str):
+                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                        try:
+                            data_obj = datetime.strptime(data, formato)
+                            mes = data_obj.month
+                            break
+                        except:
+                            continue
+                    else:
+                        mes = 1
+                else:
+                    mes = 1
+                
+                if isinstance(valor, str):                
+                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                    valor_limpo = valor_limpo.replace(',', '.')
+                    try:
+                        valor_float = float(valor_limpo)
+                    except:
+                        valor_float = 0.0
+                else:
+                    valor_float = float(valor) if valor else 0.0
+                    
+                if descricao not in tabela_dados:                    
+                    tabela_dados[descricao] = {i: 0.0 for i in range(1, 13)}
+                tabela_dados[descricao][mes] += valor_float
+                
+            except Exception as e:
+                continue
+    
+    # Calcular totais da tabela mensal original para obter o último saldo
+    def calcular_totais_receitas_original():
+        totais_mes = {i: 0.0 for i in range(1, 13)}
+        for desc in tabela_dados.keys():
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+            if classificacao_desc in classificacoes_receitas:
+                dados_mes = tabela_dados[desc]
+                for mes in range(1, 13):
+                    totais_mes[mes] += dados_mes[mes]
+        return totais_mes
+    
+    def calcular_totais_despesas_original():
+        totais_mes = {i: 0.0 for i in range(1, 13)}
+        for desc in tabela_dados.keys():
+            info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+            if isinstance(info_classificacao, dict):
+                classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+            else:
+                classificacao_desc = info_classificacao
+            if classificacao_desc in subcategorias_despesas:
+                dados_mes = tabela_dados[desc]
+                for mes in range(1, 13):
+                    totais_mes[mes] += dados_mes[mes]
+        return totais_mes
+    
+    # Calcular saldo inicial baseado no último mês da tabela original
+    totais_receitas_original = calcular_totais_receitas_original()
+    totais_despesas_original = calcular_totais_despesas_original()
+    
+    saldo_inicial_base = 272801.75  # Mesmo da tabela mensal
+    saldo_acumulado = saldo_inicial_base
+    
+    # Calcular saldo até dezembro (último mês)
+    for mes in range(1, 13):
+        movimento_mes = totais_receitas_original[mes] + totais_despesas_original[mes]
+        saldo_acumulado += movimento_mes
+    
+    # O saldo final de dezembro será o saldo inicial da projeção
+    saldo_inicial_projecao = saldo_acumulado
+    
+    # Calcular saldo bancário cumulativo futuro
+    saldo_acumulado_futuro = saldo_inicial_projecao
+    saldos_futuros_cumulativos = {}
+    
+    # Calcular saldo acumulado mês a mês (projeção)
+    for mes in range(1, 13):
+        movimento_mes = totais_mes_receitas[mes] + totais_mes_despesas[mes]
+        saldo_acumulado_futuro += movimento_mes
+        saldos_futuros_cumulativos[mes] = saldo_acumulado_futuro
+    
+    # Criar HTML da tabela (seguindo estrutura da tabela mensal)
+    html = """
+    <div style="margin-top: 20px;">
+    <div style="max-height: 600px; overflow-y: auto;">
+    <table border="1" style="width:100%; border-collapse: collapse;">
+    <tr style="background-color: #f0f0f0;">
+        <th style="text-align: left; padding: 8px; background-color: #f0f0f0;">Descrição (Recorrente)</th>
+        <th style="text-align: center; padding: 8px; background-color: #f0f0f0;">Total</th>
+    """
+    
+    # Adicionar cabeçalhos dos meses (igual à tabela mensal)
+    for mes_nome in meses_nomes:
+        html += f'<th style="text-align: center; padding: 8px; background-color: #f0f0f0; font-size: 14px;">{mes_nome}</th>'
+    
+    html += '</tr>'
+    
+    # Adicionar linha de saldo bancário projetado (igual à tabela mensal)
+    html += f'<tr style="background-color: rgba(255, 215, 0, 0.4); font-weight: bold; border: 3px solid #FFD700;">'
+    html += f'<td style="padding: 8px; text-align: center; font-size: 20px; font-weight: bold; color: #4169E1;">💰 SALDO BANCÁRIO PROJETADO</td>'
+    html += f'<td style="padding: 8px; text-align: center; font-size: 16px; font-weight: bold; color: #666;">Saldo Inicial: {int(saldo_inicial_projecao):,}</td>'
+    
+    # Adicionar saldo projetado de cada mês
+    for mes in range(1, 13):
+        saldo_mes_projetado = saldos_futuros_cumulativos[mes]
+        cor_saldo_mes = '#0066CC' if saldo_mes_projetado >= 0 else '#DC143C'
+        html += f'<td style="padding: 8px; color: {cor_saldo_mes}; text-align: center; font-weight: bold; font-size: 18px;">{int(saldo_mes_projetado):,}</td>'
+    
+    html += '</tr>'
+    
+    # Linha de divisão
+    html += f'<tr style="height: 3px; border: none;"><td colspan="14" style="background-color: #666; height: 3px; border: none; padding: 0;"></td></tr>'
+    
+    # Adicionar linha RECEITA / DESPESAS projetadas
+    total_receita_despesas_futuras = total_geral_receitas + total_geral_despesas
+    html += f'<tr style="background-color: rgba(255, 165, 0, 0.4); font-weight: bold; border: 2px solid #FFA500;">'
+    html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold; color: #FF4500;">💰 RECEITA / DESPESAS PROJETADAS</td>'
+    
+    cor_total_receita_despesas = '#228B22' if total_receita_despesas_futuras >= 0 else '#DC143C'
+    html += f'<td style="padding: 8px; color: {cor_total_receita_despesas}; text-align: center; font-size: 18px; font-weight: bold;">{int(total_receita_despesas_futuras):,}</td>'
+    
+    # Adicionar valores mensais projetados (receitas + despesas por mês)
+    for mes in range(1, 13):
+        valor_mes_total = totais_mes_receitas[mes] + totais_mes_despesas[mes]
+        if valor_mes_total != 0:
+            cor_valor = '#228B22' if valor_mes_total >= 0 else '#DC143C'
+            html += f'<td style="padding: 8px; color: {cor_valor}; text-align: center; font-weight: bold; font-size: 18px;">{int(valor_mes_total):,}</td>'
+        else:
+            html += '<td style="padding: 8px; text-align: center; font-weight: bold; font-size: 18px; color: #FF4500;">-</td>'
+    
+    html += '</tr>'
+    
+    # Linha de divisão
+    html += f'<tr style="height: 3px; border: none;"><td colspan="14" style="background-color: #666; height: 3px; border: none; padding: 0;"></td></tr>'
+    
+    # Adicionar linha de total das receitas projetadas
+    html += f'<tr style="background-color: rgba(144, 238, 144, 0.6); font-weight: bold; border: 2px solid #90EE90;">'
+    html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold; color: #000080;">💰 RECEITAS/APLICAÇÕES/EMPRESTIMOS PROJETADAS</td>'
+    html += f'<td style="padding: 8px; color: #000080; text-align: center; font-size: 18px; font-weight: bold;">{int(total_geral_receitas):,}</td>'
+    
+    # Adicionar totais de cada mês para receitas
+    for mes in range(1, 13):
+        valor_mes = totais_mes_receitas[mes]
+        if valor_mes != 0:
+            html += f'<td style="padding: 8px; color: #000080; text-align: center; font-weight: bold; font-size: 18px;">{int(valor_mes):,}</td>'
+        else:
+            html += '<td style="padding: 8px; text-align: center; font-weight: bold; font-size: 18px; color: #000080;">-</td>'
+    
+    html += '</tr>'
+    
+    # Linha de divisão mais grossa
+    html += f'<tr style="height: 8px; border: none;"><td colspan="14" style="background-color: #00CED1; height: 8px; border: none; padding: 0; border-top: 3px solid #008B8B; border-bottom: 2px solid #008B8B;"></td></tr>'
+    
+    # Função para calcular totais por classificação (igual à tabela mensal)
+    def calcular_totais_classificacao_futura(classificacao):
+        totais_mes = {i: 0.0 for i in range(1, 13)}
+        total_geral = 0.0
+        
+        if classificacao == "DESPESAS":
+            for desc in descricoes_ordenadas:
+                info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                if classificacao_desc in subcategorias_despesas:
+                    # Verificar se há valor manual
+                    valor_manual = valores_manuais.get(str(desc), None)
+                    if valor_manual:
+                        valor_mensal = float(valor_manual)
+                        for mes in range(1, 13):
+                            totais_mes[mes] += valor_mensal
+                        total_geral += float(valor_manual) * 12
+                    else:
+                        for mes in range(1, 13):
+                            totais_mes[mes] += medias_recorrentes[desc].get(mes, 0.0)
+                        total_geral += sum(medias_recorrentes[desc].values())
+        else:
+            for desc in descricoes_ordenadas:
+                info_classificacao = classificacoes.get(str(desc).strip(), "NÃO CLASSIFICADO")
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                if classificacao_desc == classificacao:
+                    # Verificar se há valor manual
+                    valor_manual = valores_manuais.get(str(desc), None)
+                    if valor_manual:
+                        valor_mensal = float(valor_manual)
+                        for mes in range(1, 13):
+                            totais_mes[mes] += valor_mensal
+                        total_geral += float(valor_manual) * 12
+                    else:
+                        for mes in range(1, 13):
+                            totais_mes[mes] += medias_recorrentes[desc].get(mes, 0.0)
+                        total_geral += sum(medias_recorrentes[desc].values())
+        
+        return totais_mes, total_geral
+    
+    # Adicionar dados de cada descrição ordenada com separadores por classificação específica
+    classificacao_anterior = None
+    despesas_ja_adicionada = False
+    
+    for descricao in descricoes_ordenadas:
+        # Obter classificação atual
+        info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+        
+        if isinstance(info_classificacao, dict):
+            classificacao_atual = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+        else:
+            classificacao_atual = info_classificacao
+        
+        # Se é uma subcategoria de DESPESAS e ainda não foi adicionada a linha DESPESAS geral
+        if classificacao_atual in subcategorias_despesas and not despesas_ja_adicionada:
+            # Adicionar linha de total DESPESAS geral
+            totais_despesas_mes, total_despesas_geral = calcular_totais_classificacao_futura("DESPESAS")
+            
+            html += f'<tr style="background-color: rgba(255, 182, 193, 0.6); font-weight: bold; border: 2px solid #FFB6C1;">'
+            html += f'<td style="padding: 8px; text-align: center; font-size: 18px; font-weight: bold; color: #8B0000;">💸 DESPESAS PROJETADAS</td>'
+            html += f'<td style="padding: 8px; color: #8B0000; text-align: center; font-size: 18px; font-weight: bold;">{int(total_despesas_geral):,}</td>'
+            
+            for mes in range(1, 13):
+                valor_mes = totais_despesas_mes[mes]
+                if valor_mes != 0:
+                    html += f'<td style="padding: 8px; color: #8B0000; text-align: center; font-weight: bold; font-size: 18px;">{int(valor_mes):,}</td>'
+                else:
+                    html += '<td style="padding: 8px; text-align: center; font-weight: bold; font-size: 18px; color: #8B0000;">-</td>'
+            
+            html += '</tr>'
+            despesas_ja_adicionada = True
+        
+        # Adicionar linha de separação apenas para classificações específicas dentro das despesas
+        if classificacao_atual != classificacao_anterior:
+            
+            # Adicionar separador para a nova classificação (se for subcategoria de despesas)
+            if classificacao_atual in subcategorias_despesas:
+                # Calcular totais para esta classificação específica de despesa
+                totais_class_mes, total_class_geral = calcular_totais_classificacao_futura(classificacao_atual)
+                
+                # Só adicionar se houver itens recorrentes nesta classificação
+                if total_class_geral != 0:
+                    html += f'<tr style="background-color: rgba(255, 192, 203, 0.4); font-weight: bold; border: 1px solid #FFB6C1;">'
+                    html += f'<td style="padding: 8px; text-align: center; font-size: 16px; font-weight: bold; color: #B22222;">├─ {classificacao_atual}</td>'
+                    html += f'<td style="padding: 8px; color: #B22222; text-align: center; font-size: 16px; font-weight: bold;">{int(total_class_geral):,}</td>'
+                    
+                    for mes in range(1, 13):
+                        valor_mes = totais_class_mes[mes]
+                        if valor_mes != 0:
+                            html += f'<td style="padding: 8px; color: #B22222; text-align: center; font-weight: bold; font-size: 16px;">{int(valor_mes):,}</td>'
+                        else:
+                            html += '<td style="padding: 8px; text-align: center; font-weight: bold; font-size: 16px; color: #B22222;">-</td>'
+                    
+                    html += '</tr>'
+        
+        # Adicionar linha da descrição individual
+        total_descricao = sum(medias_recorrentes[descricao].values())
+        cor_total = '#228B22' if total_descricao >= 0 else '#DC143C'
+        
+        # Cor de fundo baseada na classificação
+        if classificacao_atual in classificacoes_receitas:
+            cor_bg_desc = "#f0fff0"  # Verde claro para receitas
+            prefixo = "   "
+        elif classificacao_atual in subcategorias_despesas:
+            cor_bg_desc = "#fff5f5"  # Rosa bem claro para despesas
+            prefixo = "     • "  # Maior indentação para itens de despesa
+        else:
+            cor_bg_desc = "#f9f9f9"  # Cinza claro
+            prefixo = "   "
+        
+        # Criar ID único para o input (usando descricao sem caracteres especiais)
+        input_id = f"manual_{abs(hash(str(descricao)))}"
+        
+        # Verificar se há valor manual salvo para esta descrição
+        valor_manual_salvo = valores_manuais.get(str(descricao), "")
+        
+        # Se há valor manual, usar ele para calcular o total e valores mensais
+        if valor_manual_salvo:
+            total_exibido = float(valor_manual_salvo) * 12  # Multiplicar por 12 para mostrar total anual
+            cor_total = '#228B22' if total_exibido >= 0 else '#DC143C'
+        else:
+            total_exibido = total_descricao
+        
+        # Adicionar indicador visual se o valor é manual
+        indicador_manual = " 🔧" if valor_manual_salvo else ""
+        
+        html += f'<tr style="background-color: {cor_bg_desc};" id="row_{input_id}">'
+        html += f'<td style="padding: 8px; font-weight: normal; padding-left: 15px;">{prefixo}{descricao}{indicador_manual}</td>'
+        html += f'<td style="padding: 8px; color: {cor_total}; text-align: center; font-weight: bold;" id="total_{input_id}">{int(total_exibido):,}</td>'
+        
+        # Adicionar valores mensais com IDs para JavaScript
+        for mes in range(1, 13):
+            valor_original = medias_recorrentes[descricao].get(mes, 0.0)
+            
+            # Usar valor manual se existir, senão usar o valor original
+            if valor_manual_salvo:
+                valor_mes_exibido = float(valor_manual_salvo)  # Usar valor manual diretamente
+                estilo_manual = "background-color: rgba(40, 167, 69, 0.1); font-weight: bold;"
+            else:
+                valor_mes_exibido = valor_original
+                estilo_manual = ""
+            
+            if valor_mes_exibido != 0:
+                cor_valor = '#228B22' if valor_mes_exibido >= 0 else '#DC143C'
+                html += f'<td style="padding: 8px; color: {cor_valor}; text-align: center; font-weight: bold; {estilo_manual}" id="mes_{mes}_{input_id}" data-original-value="{int(valor_original)}">{int(valor_mes_exibido):,}</td>'
+            else:
+                html += f'<td style="padding: 8px; text-align: center; color: #999; {estilo_manual}" id="mes_{mes}_{input_id}" data-original-value="{int(valor_original)}">-</td>'
+        
+        html += '</tr>'
+        
+        classificacao_anterior = classificacao_atual
+    
+    html += '</table></div>'
+    
+    
+    # Adicionar JavaScript para atualizar valores manuais
+    html += """
+    <script>
+    function updateMonthValues(inputId, originalTotal) {
+        const inputElement = document.getElementById(inputId);
+        const manualValue = parseFloat(inputElement.value) || 0;
+        
+        // Atualizar o total
+        const totalElement = document.getElementById('total_' + inputId);
+        if (manualValue > 0) {
+            const color = manualValue >= 0 ? '#228B22' : '#DC143C';
+            totalElement.innerHTML = manualValue.toLocaleString('pt-BR');
+            totalElement.style.color = color;
+        } else {
+            const color = originalTotal >= 0 ? '#228B22' : '#DC143C';
+            totalElement.innerHTML = originalTotal.toLocaleString('pt-BR');
+            totalElement.style.color = color;
+        }
+        
+        // Atualizar todos os 12 meses
+        for (let mes = 1; mes <= 12; mes++) {
+            const mesElement = document.getElementById('mes_' + mes + '_' + inputId);
+            if (mesElement) {
+                const originalValue = parseInt(mesElement.getAttribute('data-original-value'));
+                
+                if (manualValue > 0) {
+                    // Usar valor manual diretamente (não dividir por 12)
+                    const monthlyValue = Math.round(manualValue);
+                    const color = monthlyValue >= 0 ? '#228B22' : '#DC143C';
+                    mesElement.innerHTML = monthlyValue.toLocaleString('pt-BR');
+                    mesElement.style.color = color;
+                    mesElement.style.fontWeight = 'bold';
+                } else {
+                    // Voltar ao valor original
+                    if (originalValue !== 0) {
+                        const color = originalValue >= 0 ? '#228B22' : '#DC143C';
+                        mesElement.innerHTML = originalValue.toLocaleString('pt-BR');
+                        mesElement.style.color = color;
+                        mesElement.style.fontWeight = 'bold';
+                    } else {
+                        mesElement.innerHTML = '-';
+                        mesElement.style.color = '#999';
+                        mesElement.style.fontWeight = 'normal';
+                    }
+                }
+            }
+        }
+    }
+    
+
+    </script>
+    """
+    
+    # Adicionar nota explicativa
+    html += f"""
+    <p style="margin-top: 15px; color: #666; font-style: italic; font-size: 14px;">
+        📋 <strong>Nota:</strong> Esta projeção é baseada nas médias mensais dos itens marcados como recorrentes (RE).<br>
+        💰 <strong>Saldo inicial:</strong> R$ {int(saldo_inicial_projecao):,} (último saldo calculado da tabela mensal atual)<br>
+        🔧 <strong>Indicadores:</strong> Items com 🔧 têm valores manuais salvos no arquivo JSON
+    </p>
     </div>
     """
     
@@ -1236,7 +1898,7 @@ def main():
     st.set_page_config(
         page_title="Processador de Extratos Excel - 4I Capital Ltda.",
         layout="wide",
-        initial_sidebar_state="collapsed"
+        initial_sidebar_state="expanded"
     )
     
     # Título centralizado, grande e em azul turquesa
@@ -1246,36 +1908,231 @@ def main():
     </h1>
     """, unsafe_allow_html=True)
     
-    # Verificar classificações sem recorrência na inicialização
-    classificacoes_sem_recorrencia = verificar_classificacoes_sem_recorrencia()
+    # Menu principal na barra lateral
+    with st.sidebar:
+        # Logotipo centralizado e ampliado na sidebar
+        if os.path.exists("logo.png"):
+            # Centralizar usando colunas
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image("logo.png", width=180, use_container_width=False)
+        
+        st.header("📋 Menu Principal")
+        st.markdown("---")
+        
+        # Opções do menu
+        opcao_menu = st.radio(
+            "Escolha uma opção:",
+            [
+                "📊 Configurações + Tabela Mensal",
+                "📈 Projeção Futuro + Valores Manuais"
+            ],
+            index=0
+        )
+        
+        st.markdown("---")
+        st.write("**ℹ️ Instruções:**")
+        if opcao_menu == "📊 Configurações + Tabela Mensal":
+            st.write("• Configure as classificações")
+            st.write("• Visualize dados mensais históricos") 
+            st.write("• Analise receitas e despesas por período")
+        else:
+            st.write("• Veja projeções dos próximos 12 meses")
+            st.write("• Ajuste valores manualmente") 
+            st.write("• Configure cenários futuros")
     
-    # Se existem classificações sem recorrência, mostrar alerta no topo
-    if classificacoes_sem_recorrencia:
-        st.error(f"🚨 **ATENÇÃO:** {len(classificacoes_sem_recorrencia)} classificação(ões) precisam ter a recorrência definida (RE/N_RE)!")
-        st.warning("⬇️ **Role para baixo até a seção 'Classificação de Descrições' para definir as recorrências.**")
-    
+    # Processar dados (sempre necessário)
     arquivos = arquivos_disponiveis()    
-    # Botão para processar arquivos
     dados_sicred = process_sicred_files(arquivos)
     arquivos = arquivos_disponiveis()
     dados_bradesco = process_bradesco_files(arquivos,dados_sicred)
     dados_completos = descricao(dados_bradesco)
     
-    # Formulário de classificação das descrições
-    if dados_completos:
-        formulario_classificacao(dados_completos)    
+    # Verificar classificações sem recorrência
+    classificacoes_sem_recorrencia = verificar_classificacoes_sem_recorrencia()
     
-    # Criar e exibir tabela HTML mensal
-    if dados_completos:
-        st.markdown("---")
-        st.subheader("📊 Tabela Mensal por Descrição")
+    # Exibir conteúdo baseado na seleção do menu
+    if opcao_menu == "📊 Configurações + Tabela Mensal":
+        # SEÇÃO 1: Configurações e Classificações (Layout em 2 colunas)
+        st.header("🏠 Configurações e Classificações")
+        
+        # Criar duas colunas para layout lado a lado
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("⚙️ Status das Configurações")
+            
+            # Se existem classificações sem recorrência, mostrar alerta
+            if classificacoes_sem_recorrencia:
+                st.error(f"🚨 **ATENÇÃO:** {len(classificacoes_sem_recorrencia)} classificação(ões) precisam ter a recorrência definida (RE/N_RE)!")
+                st.warning("⬇️ **Configure as recorrências na coluna ao lado para prosseguir.**")
+            else:
+                st.success("✅ Todas as classificações estão configuradas corretamente!")
+            
+            # Mostrar estatísticas dos dados
+            if dados_completos:
+                st.info(f"📊 **{len(dados_completos)}** registros de dados carregados")
+                
+                # Mostrar resumo das classificações
+                classificacoes_existentes = carregar_classificacoes()
+                st.info(f"📝 **{len(classificacoes_existentes)}** descrições já classificadas")
+                
+                # Obter descrições únicas
+                from collections import Counter
+                descricoes_unicas = obter_descricoes_unicas(dados_completos)
+                descricoes_nao_classificadas = [desc for desc in descricoes_unicas 
+                                                if desc not in classificacoes_existentes]
+                
+                if descricoes_nao_classificadas:
+                    st.warning(f"⚠️ **{len(descricoes_nao_classificadas)}** descrições ainda precisam ser classificadas")
+                else:
+                    st.success("✅ Todas as descrições estão classificadas!")
+                    
+            else:
+                st.error("⚠️ Nenhum dado encontrado nos arquivos. Verifique se os arquivos estão na pasta ArquivosExtratos.")
+        
+        with col2:
+            st.subheader("📝 Formulário de Classificações")
+            
+            # Formulário de classificação das descrições
+            if dados_completos:
+                formulario_classificacao(dados_completos)
+            else:
+                st.warning("⚠️ Carregue os dados primeiro para classificar as descrições.")
+        
+        # SEÇÃO 2: Tabela Mensal (só mostra se classificações estão OK)
+        if not classificacoes_sem_recorrencia and dados_completos:
+            st.markdown("---")
+            st.header("📊 Tabela Mensal por Descrição")
+            st.markdown("")
+            tabela_html = criar_tabela_mensal(dados_completos)
+            st.markdown(tabela_html, unsafe_allow_html=True)
+        elif classificacoes_sem_recorrencia:
+            st.markdown("---")
+            st.info("ℹ️ **A Tabela Mensal será exibida após configurar todas as classificações acima.**")
+    
+    elif opcao_menu == "📈 Projeção Futuro + Valores Manuais":
+        # Verificar se classificações estão configuradas
+        if classificacoes_sem_recorrencia:
+            st.error("🚨 **Erro:** Configure as classificações primeiro na aba 'Configurações + Tabela Mensal'")
+            st.stop()
+        
+        if not dados_completos:
+            st.warning("⚠️ Nenhum dado encontrado.")
+            st.stop()
+        
+        # SEÇÃO 1: Projeção de Fluxo Futuro
+        st.header("📈 Projeção de Fluxo Futuro - Próximos 12 Meses")
         st.markdown("")
-        tabela_html = criar_tabela_mensal(dados_completos)
-        st.markdown(tabela_html, unsafe_allow_html=True)
-  
+        tabela_fluxo_futuro = criar_tabela_fluxo_futuro(dados_completos)
+        st.markdown(tabela_fluxo_futuro, unsafe_allow_html=True)
+        
+        # SEÇÃO 2: Gerenciar Valores Manuais
+        st.markdown("---")
+        st.header("💾 Gerenciar Valores Manuais de Projeção")
+        
+        # Mostrar status do arquivo
+        arquivo_existe = os.path.exists('valores_manuais_projecao.json')
+        if arquivo_existe:
+            st.success("📄 Arquivo de valores manuais encontrado: `valores_manuais_projecao.json`")
+        else:
+            st.info("📄 Arquivo de valores manuais será criado ao salvar o primeiro valor")
+        
+        # Obter lista de descrições recorrentes para o selectbox
+        medias_recorrentes = calcular_medias_recorrentes(dados_completos)
+        descricoes_disponiveis = list(medias_recorrentes.keys()) if medias_recorrentes else []
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Carregar valores atuais para mostrar em um selectbox
+            valores_atuais = carregar_valores_manuais()
+            
+            # Campo para adicionar/editar valor manual
+            st.write("**Adicionar/Editar Valor Manual:**")
+            
+            if descricoes_disponiveis:
+                # Selectbox com as descrições disponíveis
+                descricao_selecionada = st.selectbox(
+                    "Selecione a descrição:", 
+                    [""] + descricoes_disponiveis, 
+                    key="desc_select"
+                )
+                
+                # Mostrar valor atual se existir
+                if descricao_selecionada:
+                    valor_atual = valores_atuais.get(descricao_selecionada, 0.0)
+                    total_original = sum(medias_recorrentes[descricao_selecionada].values()) if descricao_selecionada in medias_recorrentes else 0
+                    
+                    if valor_atual != 0:
+                        st.info(f"💾 Valor manual atual: R$ {valor_atual:,.2f} por mês (Total anual: R$ {valor_atual * 12:,.2f})")
+                    else:
+                        st.info(f"📊 Valor calculado atual: R$ {total_original/12:,.2f} por mês (Total anual: R$ {total_original:,.2f})")
+                
+                valor_input = st.number_input("Novo valor MENSAL:", value=0.0, key="valor_manual", help="Digite o valor que será usado TODOS OS MESES")
+                
+                col1a, col1b = st.columns(2)
+                
+                with col1a:
+                    if st.button("💾 Salvar Valor", disabled=not descricao_selecionada):
+                        if descricao_selecionada and valor_input != 0:
+                            valores_atuais[descricao_selecionada] = valor_input
+                            if salvar_valores_manuais(valores_atuais):
+                                st.success(f"✅ Valor R$ {valor_input:,.2f} POR MÊS salvo para '{descricao_selecionada}'!")
+                                st.success(f"📊 Total anual será: R$ {valor_input * 12:,.2f}")
+                                st.rerun()
+                            else:
+                                st.error("❌ Erro ao salvar valor no arquivo JSON.")
+                        else:
+                            st.warning("⚠️ Selecione uma descrição e insira um valor diferente de zero.")
+                
+                with col1b:
+                    if st.button("🗑️ Remover Valor", disabled=not descricao_selecionada or descricao_selecionada not in valores_atuais):
+                        if descricao_selecionada in valores_atuais:
+                            del valores_atuais[descricao_selecionada]
+                            salvar_valores_manuais(valores_atuais)
+                            st.success(f"✅ Valor removido para '{descricao_selecionada}'!")
+                            st.rerun()
+            else:
+                st.warning("Nenhuma descrição recorrente encontrada.")
+        
+        with col2:
+            # Mostrar valores salvos em um expander colapsível
+            if valores_atuais:
+                # Mostrar resumo antes do expander
+                st.success(f"💾 **{len(valores_atuais)}** valor(es) manual(is) salvo(s)")
+                
+                # Lista colapsível dos valores salvos
+                with st.expander("📂 Ver valores manuais salvos no arquivo", expanded=False):
+                    st.write("**Lista completa dos valores:**")
+                    for desc, valor in valores_atuais.items():
+                        # Verificar se esta descrição está sendo usada na projeção
+                        em_uso = desc in descricoes_disponiveis
+                        status = "✅ Em uso" if em_uso else "⚠️ Não encontrada"
+                        st.write(f"• **{desc}**: R$ {valor:,.2f}/mês | R$ {valor * 12:,.2f}/ano ({status})")
+                    
+                    st.write("---")
+                    
+                    # Mostrar exemplo do arquivo JSON
+                    st.write("**Conteúdo do arquivo JSON:**")
+                    st.json(valores_atuais)
+            else:
+                st.info("💾 Nenhum valor manual salvo ainda no arquivo `valores_manuais_projecao.json`.")
+                
+            # Mostrar informações técnicas
+            st.write("---")
+            st.write("**ℹ️ Como funciona:**")
+            st.write("1. Ao salvar um valor, ele é gravado no arquivo JSON")
+            st.write("2. Na próxima atualização da tabela, o valor salvo substitui o calculado")
+            st.write("3. O valor é usado diretamente em TODOS os 12 meses")
+            st.write("4. Os totais são recalculados automaticamente")
+
+
 def arquivos_disponiveis():
     # Informações sobre os arquivos na pasta    
-    arquivos_dir = f".\\ArquivosExtratos"  
+    arquivos_dir = f".\\ArquivosExtratos" 
+    if arquivos_dir==[] or arquivos_dir=="": 
+        arquivos_dir = "ArquivosExtratos"
     
     if os.path.exists(arquivos_dir):
         arquivos = os.listdir(arquivos_dir)        
