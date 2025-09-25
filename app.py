@@ -1037,29 +1037,22 @@ def arquivos_disponiveis():
         arquivos_2025 = [arq for arq in arquivos if "2025" in arq]                 
         if arquivos_2025:            
             for arq in arquivos_2025:
-                tipo = "Sicred" if "Sicred" in arq else "Bradesco" if "Bradesco" in arq else "Outro"
-                
+                tipo = "Sicred" if "Sicred" in arq else "Bradesco" if "Bradesco" in arq else "Outro"                
         else:
             st.write("Nenhum arquivo de 2025 encontrado.")
     else:
-        st.error(f"Pasta {arquivos_dir} não encontrada!")
-    import pandas as pd
-
-    path = arquivos_dir    
+        st.error(f"Pasta {arquivos_dir} não encontrada!")         
     arq =[]
     for i in arquivos_2025:
         x = "ArquivosExtratos/"+i
-        arq.append(x)
-    df = pd.DataFrame(arq)
-    st.dataframe(df)
+        arq.append(x)    
     arquivos_dir = arq  
-    
-    
     return arquivos_dir
 
 if __name__ == "__main__":
 
     main()
+
 
 
 
