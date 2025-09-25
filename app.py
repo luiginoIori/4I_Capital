@@ -2130,7 +2130,7 @@ def main():
 
 def arquivos_disponiveis():
     # Informações sobre os arquivos na pasta    
-    arquivos_dir = f".\\ArquivosExtratos" 
+    arquivos_dir = "ArquivosExtratos" 
     if arquivos_dir==[] or arquivos_dir=="": 
         arquivos_dir = "ArquivosExtratos"
     
@@ -2154,4 +2154,5 @@ def arquivos_disponiveis():
     return arquivos_dir
 
 if __name__ == "__main__":
+
     main()
