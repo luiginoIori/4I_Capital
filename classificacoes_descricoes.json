@@ -326,5 +326,29 @@
   "OCAIXA ECONOMICA FED": {
     "classificacao": "ENCARGOS",
     "recorrencia": "RE"
+  },
+  "APLICACAO CDB": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "RESGTITCAPITALIZACAO": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "RESGVENCTO CDB": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "TITULO DE CAPITALIZACAO CAPITALIZACAO": {
+    "classificacao": "APLICAÇÃO FINANCEIRA",
+    "recorrencia": "N_RE"
+  },
+  "MARKETPLACE": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  },
+  "PLANNER CORRETORA": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "N_RE"
   }
 }

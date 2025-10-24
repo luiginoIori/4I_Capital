@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
 import os
 import re
 import json
@@ -10,6 +12,7 @@ import xlrd
 
 
 #  https://github.com/luiginoIori/4I_Capital.git
+# Debug fix: renamed descricao variable to desc in debug section
 
 def is_date_formatted(cell):
     """Verifica se uma célula está formatada como data"""
@@ -1497,8 +1500,66 @@ def criar_tabela_fluxo_futuro(dados_completos):
     return html
 
 
-def criar_tabela_mensal(dados_completos):
+def remover_duplicatas(dados_completos):
+    """Remove registros duplicados baseado em data + descrição + valor"""
+    dados_unicos = []
+    registros_vistos = set()
+    duplicatas_removidas = 0
+    
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            # Normalizar data para comparação
+            data_str = ""
+            try:
+                if isinstance(data, datetime):
+                    data_str = data.strftime('%Y-%m-%d')
+                elif isinstance(data, str):
+                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                        try:
+                            data_obj = datetime.strptime(data, formato)
+                            data_str = data_obj.strftime('%Y-%m-%d')
+                            break
+                        except:
+                            continue
+            except:
+                data_str = str(data)
+            
+            # Normalizar valor para comparação
+            valor_str = ""
+            try:
+                if isinstance(valor, str):
+                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                    valor_limpo = valor_limpo.replace(',', '.')
+                    valor_str = str(float(valor_limpo))
+                else:
+                    valor_str = str(float(valor))
+            except:
+                valor_str = str(valor)
+            
+            # Criar chave única
+            chave = f"{data_str}|{str(descricao).strip()}|{valor_str}"
+            
+            # Adicionar apenas se não visto antes
+            if chave not in registros_vistos:
+                registros_vistos.add(chave)
+                dados_unicos.append(registro)
+            else:
+                duplicatas_removidas += 1
+    
+    return dados_unicos, duplicatas_removidas
+
+
+def criar_tabela_mensal(dados_completos, remover_duplicatas_flag=True):
     """Cria tabela HTML organizada por descrição e meses"""
+    
+    # Remover duplicatas se solicitado
+    if remover_duplicatas_flag:
+        dados_completos, duplicatas_removidas = remover_duplicatas(dados_completos)
+        if duplicatas_removidas > 0:
+            # Esta mensagem será mostrada no log do Streamlit
+            print(f"ℹ️ {duplicatas_removidas} registros duplicados foram removidos automaticamente")
     
     # Ordem das classificações para ordenação
     ordem_classificacoes = [
@@ -1925,7 +1986,10 @@ def main():
             "Escolha uma opção:",
             [
                 "📊 Configurações + Tabela Mensal",
-                "📈 Projeção Futuro + Valores Manuais"
+                "📈 Projeção Futuro + Valores Manuais",
+                "📉 Gráfico de Receita x Despesas",
+                "📊 Gráfico de Despesas por Classificação",
+                "📅 Gráfico Diário - Receitas e Despesas"
             ],
             index=0
         )
@@ -1936,10 +2000,22 @@ def main():
             st.write("• Configure as classificações")
             st.write("• Visualize dados mensais históricos") 
             st.write("• Analise receitas e despesas por período")
-        else:
+        elif opcao_menu == "📈 Projeção Futuro + Valores Manuais":
             st.write("• Veja projeções dos próximos 12 meses")
             st.write("• Ajuste valores manualmente") 
             st.write("• Configure cenários futuros")
+        elif opcao_menu == "📉 Gráfico de Receita x Despesas":
+            st.write("• Visualize evolução temporal")
+            st.write("• Compare receitas vs despesas")
+            st.write("• Analise tendências mensais")
+        elif opcao_menu == "📊 Gráfico de Despesas por Classificação":
+            st.write("• Veja distribuição de despesas")
+            st.write("• Compare classificações")
+            st.write("• Identifique maiores gastos")
+        elif opcao_menu == "📅 Gráfico Diário - Receitas e Despesas":
+            st.write("• Visualize fluxo diário de caixa")
+            st.write("• Acompanhe receitas e despesas por dia")
+            st.write("• Analise padrões diários do período")
     
     # Processar dados (sempre necessário)
     arquivos = arquivos_disponiveis()    
@@ -2004,8 +2080,164 @@ def main():
         if not classificacoes_sem_recorrencia and dados_completos:
             st.markdown("---")
             st.header("📊 Tabela Mensal por Descrição")
+            
+            # DEBUG: Analisar NDMP I FIDC em setembro
+            st.info("🔍 **Debug disponível abaixo** - Expanda para ver análise detalhada de NDMP I FIDC")
+            
+            with st.expander("🔍 DEBUG - Análise Detalhada NDMP I FIDC (Setembro)", expanded=True):
+                st.subheader("Investigando duplicação de valores")
+                st.write("Analisando todos os registros de NDMP I FIDC...")
+                st.write("")
+                
+                # Verificar arquivos sendo processados
+                st.write("**📁 Arquivos processados:**")
+                arquivos_debug = arquivos_disponiveis()
+                for arq in arquivos_debug:
+                    if "Set" in arq or "set" in arq or "9-" in arq or "09-" in arq:
+                        st.write(f"- ⚠️ **SETEMBRO:** `{arq}`")
+                    else:
+                        st.write(f"- `{arq}`")
+                
+                st.write("---")
+                
+                # Filtrar registros de NDMP I FIDC
+                registros_ndmp = []
+                for registro in dados_completos:
+                    if len(registro) >= 3:
+                        data, desc, valor = registro[0], registro[1], registro[2]
+                        
+                        # Verificar se é NDMP I FIDC
+                        if "NDMP I FIDC" in str(desc).upper() or "NDMP" in str(desc).upper():
+                            # Extrair mês
+                            mes = None
+                            data_str = ""
+                            try:
+                                if isinstance(data, datetime):
+                                    mes = data.month
+                                    data_str = data.strftime('%d/%m/%Y')
+                                elif isinstance(data, str):
+                                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                                        try:
+                                            data_obj = datetime.strptime(data, formato)
+                                            mes = data_obj.month
+                                            data_str = data_obj.strftime('%d/%m/%Y')
+                                            break
+                                        except:
+                                            continue
+                            except:
+                                pass
+                            
+                            # Converter valor
+                            valor_float = 0.0
+                            try:
+                                if isinstance(valor, str):
+                                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                                    valor_limpo = valor_limpo.replace(',', '.')
+                                    valor_float = float(valor_limpo)
+                                else:
+                                    valor_float = float(valor) if valor else 0.0
+                            except:
+                                valor_float = 0.0
+                            
+                            registros_ndmp.append({
+                                'Data': data_str,
+                                'Mês': mes,
+                                'Descrição': desc,
+                                'Valor': valor_float,
+                                'Valor_Original': valor
+                            })
+                
+                if registros_ndmp:
+                    st.write(f"**Total de registros encontrados:** {len(registros_ndmp)}")
+                    
+                    # Criar DataFrame para visualização
+                    df_debug = pd.DataFrame(registros_ndmp)
+                    
+                    # Mostrar todos os registros
+                    st.write("**Todos os registros de NDMP:**")
+                    st.dataframe(df_debug, use_container_width=True)
+                    
+                    # Filtrar apenas setembro
+                    df_setembro = df_debug[df_debug['Mês'] == 9]
+                    
+                    if not df_setembro.empty:
+                        st.write("---")
+                        st.write("**Registros em SETEMBRO (Mês 9):**")
+                        st.dataframe(df_setembro, use_container_width=True)
+                        
+                        total_setembro = df_setembro['Valor'].sum()
+                        st.metric("💰 Total em Setembro", f"R$ {total_setembro:,.2f}")
+                        
+                        if len(df_setembro) > 1:
+                            st.error(f"🚨 **DUPLICAÇÃO DETECTADA:** {len(df_setembro)} registros encontrados em setembro!")
+                            
+                            # Verificar se são no mesmo dia
+                            datas_unicas = df_setembro['Data'].unique()
+                            st.write(f"**Datas únicas:** {len(datas_unicas)}")
+                            
+                            if len(datas_unicas) < len(df_setembro):
+                                st.error("⚠️ **Há registros duplicados na MESMA DATA!**")
+                                
+                                # Mostrar duplicatas agrupadas por data
+                                for data in datas_unicas:
+                                    registros_nessa_data = df_setembro[df_setembro['Data'] == data]
+                                    if len(registros_nessa_data) > 1:
+                                        st.write(f"**Data {data}:** {len(registros_nessa_data)} registros")
+                                        st.dataframe(registros_nessa_data, use_container_width=True)
+                            
+                            st.write("---")
+                            st.write("**💡 Possíveis causas da duplicação:**")
+                            st.write("1. ❌ **Arquivo de setembro processado duas vezes** - Verificar se há dois arquivos com dados de setembro")
+                            st.write("2. ❌ **Mesmo dado em arquivos diferentes** - Dados de setembro podem estar em mais de um arquivo")
+                            st.write("3. ❌ **Planilha com linhas duplicadas** - Verificar se a planilha original tem o registro duplicado")
+                            
+                            st.write("---")
+                            st.write("**🔧 Solução sugerida:**")
+                            st.write("- Verificar os arquivos de setembro listados acima")
+                            st.write("- Confirmar que só há UM arquivo contendo dados de setembro")
+                            st.write("- Ou adicionar lógica de deduplicação por (Data + Descrição + Valor)")
+                    else:
+                        st.info("Nenhum registro encontrado em setembro")
+                    
+                    # Agrupar por mês para ver totais
+                    st.write("---")
+                    st.write("**Totais por mês:**")
+                    totais_por_mes = df_debug.groupby('Mês')['Valor'].sum().reset_index()
+                    totais_por_mes.columns = ['Mês', 'Total']
+                    totais_por_mes['Mês_Nome'] = totais_por_mes['Mês'].map({
+                        1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                        7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+                    })
+                    st.dataframe(totais_por_mes, use_container_width=True)
+                    
+                else:
+                    st.info("Nenhum registro de NDMP encontrado nos dados")
+            
+            st.markdown("---")
+            
+            # Opção para remover duplicatas
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write("**🔧 Controle de Duplicatas:**")
+            with col2:
+                remover_dups = st.checkbox("Remover duplicatas", value=True, 
+                                          help="Remove automaticamente registros duplicados (mesma data + descrição + valor)")
+            
+            if remover_dups:
+                # Aplicar remoção e contar
+                dados_processados, duplicatas_removidas = remover_duplicatas(dados_completos)
+                if duplicatas_removidas > 0:
+                    st.success(f"✅ {duplicatas_removidas} registro(s) duplicado(s) removido(s) automaticamente")
+                else:
+                    st.info("ℹ️ Nenhuma duplicata encontrada")
+                
+                # Usar dados processados
+                tabela_html = criar_tabela_mensal(dados_processados, remover_duplicatas_flag=False)
+            else:
+                st.warning("⚠️ Exibindo dados com possíveis duplicatas")
+                tabela_html = criar_tabela_mensal(dados_completos, remover_duplicatas_flag=False)
+            
             st.markdown("")
-            tabela_html = criar_tabela_mensal(dados_completos)
             st.markdown(tabela_html, unsafe_allow_html=True)
         elif classificacoes_sem_recorrencia:
             st.markdown("---")
@@ -2126,6 +2358,697 @@ def main():
             st.write("2. Na próxima atualização da tabela, o valor salvo substitui o calculado")
             st.write("3. O valor é usado diretamente em TODOS os 12 meses")
             st.write("4. Os totais são recalculados automaticamente")
+    
+    elif opcao_menu == "📉 Gráfico de Receita x Despesas":
+        # Verificar se classificações estão configuradas
+        if classificacoes_sem_recorrencia:
+            st.error("🚨 **Erro:** Configure as classificações primeiro na aba 'Configurações + Tabela Mensal'")
+            st.stop()
+        
+        if not dados_completos:
+            st.warning("⚠️ Nenhum dado encontrado.")
+            st.stop()
+        
+        st.header("📉 Gráfico de Receita x Despesas")
+        st.markdown("")
+        
+        # Criar gráfico de receitas vs despesas
+        criar_grafico_receita_despesas(dados_completos)
+    
+    elif opcao_menu == "📊 Gráfico de Despesas por Classificação":
+        # Verificar se classificações estão configuradas
+        if classificacoes_sem_recorrencia:
+            st.error("🚨 **Erro:** Configure as classificações primeiro na aba 'Configurações + Tabela Mensal'")
+            st.stop()
+        
+        if not dados_completos:
+            st.warning("⚠️ Nenhum dado encontrado.")
+            st.stop()
+        
+        st.header("📊 Gráfico de Despesas por Classificação")
+        st.markdown("")
+        
+        # Criar gráfico de despesas por classificação
+        criar_grafico_despesas_classificacao(dados_completos)
+    
+    elif opcao_menu == "📅 Gráfico Diário - Receitas e Despesas":
+        # Verificar se classificações estão configuradas
+        if classificacoes_sem_recorrencia:
+            st.error("🚨 **Erro:** Configure as classificações primeiro na aba 'Configurações + Tabela Mensal'")
+            st.stop()
+        
+        if not dados_completos:
+            st.warning("⚠️ Nenhum dado encontrado.")
+            st.stop()
+        
+        st.header("📅 Gráfico Diário - Receitas e Despesas")
+        st.markdown("")
+        
+        # Criar gráfico diário
+        criar_grafico_diario_receitas_despesas(dados_completos)
+
+
+def criar_grafico_diario_receitas_despesas(dados_completos):
+    """Cria gráfico de linha mostrando receitas e despesas por dia do ano"""
+    from datetime import datetime, date
+    import pandas as pd
+    
+    # Carregar classificações
+    classificacoes = carregar_classificacoes()
+    
+    # Classificações de receitas
+    classificacoes_receitas = [
+        "RECEITAS",
+        "EMPRÉSTIMOS",
+        "REEMBOLSO",
+        "CONTA CORRENTE",
+        "APLICAÇÃO FINANCEIRA",
+        "TRANSFERENCIA ENTRE CONTAS"
+    ]
+    
+    # Subcategorias de despesas
+    subcategorias_despesas = [
+        "IMPOSTOS",
+        "FOLHA CLT",
+        "FOLHA PJ",
+        "ENCARGOS",
+        "ADMINISTRATIVA",
+        "ASSESSORIA JURIDICA",
+        "ASSESSORIA CONTABIL",
+        "DESPESAS FINANCEIRAS",
+        "DESPESAS COMERCIAIS",
+        "SOFTWARE",
+        "PMT EMPRESTIMOS",
+        "INVESTIMENTOS",
+        "DESPESAS IMÓVEL",
+        "ADIANTAMENTO A FORNECEDORES"
+    ]
+    
+    # Organizar dados por data
+    receitas_por_dia = {}
+    despesas_por_dia = {}
+    
+    # Processar cada registro
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            # Extrair data completa
+            try:
+                if isinstance(data, datetime):
+                    data_formatada = data.date()
+                elif isinstance(data, str):
+                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                        try:
+                            data_convertida = datetime.strptime(data, formato)
+                            data_formatada = data_convertida.date()
+                            break
+                        except:
+                            continue
+                    else:
+                        continue  # Pular se não conseguir converter a data
+                else:
+                    continue  # Pular se não for datetime nem string
+                
+                # Converter valor para float
+                if isinstance(valor, str):
+                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                    valor_limpo = valor_limpo.replace(',', '.')
+                    try:
+                        valor_float = float(valor_limpo)
+                    except:
+                        valor_float = 0.0
+                else:
+                    valor_float = float(valor) if valor else 0.0
+                
+                # Classificar como receita ou despesa
+                info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+                
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                
+                # Inicializar data nos dicionários se não existir
+                if data_formatada not in receitas_por_dia:
+                    receitas_por_dia[data_formatada] = 0.0
+                if data_formatada not in despesas_por_dia:
+                    despesas_por_dia[data_formatada] = 0.0
+                
+                if classificacao_desc in classificacoes_receitas:
+                    receitas_por_dia[data_formatada] += valor_float
+                elif classificacao_desc in subcategorias_despesas:
+                    despesas_por_dia[data_formatada] += abs(valor_float)  # Usar valor absoluto para despesas
+                    
+            except Exception as e:
+                continue
+    
+    # Verificar se temos dados
+    if not receitas_por_dia and not despesas_por_dia:
+        st.warning("⚠️ Nenhum dado válido encontrado com datas.")
+        return
+    
+    # Obter range de datas
+    todas_datas = set(receitas_por_dia.keys()) | set(despesas_por_dia.keys())
+    
+    if not todas_datas:
+        st.warning("⚠️ Nenhuma data válida encontrada.")
+        return
+    
+    data_min = min(todas_datas)
+    data_max = max(todas_datas)
+    
+    # Criar range completo de datas (para preencher gaps)
+    from datetime import timedelta
+    data_atual = data_min
+    datas_completas = []
+    
+    while data_atual <= data_max:
+        datas_completas.append(data_atual)
+        data_atual += timedelta(days=1)
+    
+    # Preparar dados para o gráfico
+    receitas_valores = []
+    despesas_valores = []
+    datas_formatadas = []
+    
+    for data_dia in datas_completas:
+        receitas_valores.append(receitas_por_dia.get(data_dia, 0.0))
+        despesas_valores.append(despesas_por_dia.get(data_dia, 0.0))
+        datas_formatadas.append(data_dia.strftime('%d/%m'))
+    
+    # Criar gráfico
+    fig = go.Figure()
+    
+    # Linha de receitas
+    fig.add_trace(go.Scatter(
+        x=datas_formatadas,
+        y=receitas_valores,
+        mode='lines+markers',
+        name='Receitas',
+        line=dict(color='#28a745', width=2),
+        marker=dict(size=4),
+        hovertemplate='<b>%{fullData.name}</b><br>' +
+                      'Data: %{x}<br>' +
+                      'Valor: R$ %{y:,.2f}<extra></extra>'
+    ))
+    
+    # Linha de despesas
+    fig.add_trace(go.Scatter(
+        x=datas_formatadas,
+        y=despesas_valores,
+        mode='lines+markers',
+        name='Despesas',
+        line=dict(color='#dc3545', width=2),
+        marker=dict(size=4),
+        hovertemplate='<b>%{fullData.name}</b><br>' +
+                      'Data: %{x}<br>' +
+                      'Valor: R$ %{y:,.2f}<extra></extra>'
+    ))
+    
+    # Configurar layout
+    fig.update_layout(
+        title={
+            'text': f'📅 Fluxo Diário de Receitas e Despesas - {data_min.strftime("%d/%m/%Y")} a {data_max.strftime("%d/%m/%Y")}',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18}
+        },
+        xaxis_title='Data',
+        yaxis_title='Valor (R$)',
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        height=600,
+        xaxis=dict(
+            tickangle=45,
+            nticks=min(20, len(datas_formatadas))  # Limitar número de ticks no eixo X
+        )
+    )
+    
+    # Exibir gráfico
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Mostrar resumo
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        total_receitas = sum(receitas_valores)
+        st.metric("💰 Total de Receitas", f"R$ {total_receitas:,.2f}")
+    
+    with col2:
+        total_despesas = sum(despesas_valores)
+        st.metric("💸 Total de Despesas", f"R$ {total_despesas:,.2f}")
+    
+    with col3:
+        saldo = total_receitas - total_despesas
+        st.metric("⚖️ Saldo Líquido", f"R$ {saldo:,.2f}", 
+                 delta_color="normal" if saldo >= 0 else "inverse")
+    
+    # Mostrar informações adicionais
+    st.subheader("📊 Informações do Período")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        dias_com_receita = sum(1 for r in receitas_valores if r > 0)
+        st.metric("📅 Dias com Receitas", dias_com_receita)
+    
+    with col2:
+        dias_com_despesa = sum(1 for d in despesas_valores if d > 0)
+        st.metric("📅 Dias com Despesas", dias_com_despesa)
+    
+    with col3:
+        if dias_com_receita > 0:
+            media_receita_dia = total_receitas / dias_com_receita
+            st.metric("💰 Média Receita/Dia", f"R$ {media_receita_dia:,.2f}")
+        else:
+            st.metric("💰 Média Receita/Dia", "R$ 0,00")
+    
+    with col4:
+        if dias_com_despesa > 0:
+            media_despesa_dia = total_despesas / dias_com_despesa
+            st.metric("💸 Média Despesa/Dia", f"R$ {media_despesa_dia:,.2f}")
+        else:
+            st.metric("💸 Média Despesa/Dia", "R$ 0,00")
+
+
+def criar_grafico_receita_despesas(dados_completos):
+    """Cria gráfico de linha comparando receitas vs despesas ao longo dos meses"""
+    from datetime import datetime
+    import pandas as pd
+    
+    # Carregar classificações
+    classificacoes = carregar_classificacoes()
+    
+    # Classificações de receitas
+    classificacoes_receitas = [
+        "RECEITAS",
+        "EMPRÉSTIMOS",
+        "REEMBOLSO",
+        "CONTA CORRENTE",
+        "APLICAÇÃO FINANCEIRA",
+        "TRANSFERENCIA ENTRE CONTAS"
+    ]
+    
+    # Subcategorias de despesas
+    subcategorias_despesas = [
+        "IMPOSTOS",
+        "FOLHA CLT",
+        "FOLHA PJ",
+        "ENCARGOS",
+        "ADMINISTRATIVA",
+        "ASSESSORIA JURIDICA",
+        "ASSESSORIA CONTABIL",
+        "DESPESAS FINANCEIRAS",
+        "DESPESAS COMERCIAIS",
+        "SOFTWARE",
+        "PMT EMPRESTIMOS",
+        "INVESTIMENTOS",
+        "DESPESAS IMÓVEL",
+        "ADIANTAMENTO A FORNECEDORES"
+    ]
+    
+    # Organizar dados por mês
+    receitas_por_mes = {i: 0.0 for i in range(1, 13)}
+    despesas_por_mes = {i: 0.0 for i in range(1, 13)}
+    
+    # Processar cada registro
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            # Extrair mês da data
+            try:
+                if isinstance(data, datetime):
+                    mes = data.month
+                elif isinstance(data, str):
+                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                        try:
+                            data_convertida = datetime.strptime(data, formato)
+                            mes = data_convertida.month
+                            break
+                        except:
+                            continue
+                    else:
+                        mes = 1
+                else:
+                    mes = 1
+                
+                # Converter valor para float
+                if isinstance(valor, str):
+                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                    valor_limpo = valor_limpo.replace(',', '.')
+                    try:
+                        valor_float = float(valor_limpo)
+                    except:
+                        valor_float = 0.0
+                else:
+                    valor_float = float(valor) if valor else 0.0
+                
+                # Classificar como receita ou despesa
+                info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+                
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                
+                if classificacao_desc in classificacoes_receitas:
+                    receitas_por_mes[mes] += valor_float
+                elif classificacao_desc in subcategorias_despesas:
+                    despesas_por_mes[mes] += valor_float
+                    
+            except Exception as e:
+                continue
+    
+    # Preparar dados para o gráfico
+    meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    receitas_valores = [receitas_por_mes[i] for i in range(1, 13)]
+    despesas_valores = [abs(despesas_por_mes[i]) for i in range(1, 13)]  # Multiplicar por -1 (usar abs) para valores positivos
+    
+    # Criar gráfico
+    fig = go.Figure()
+    
+    # Linha de receitas
+    fig.add_trace(go.Scatter(
+        x=meses_nomes,
+        y=receitas_valores,
+        mode='lines+markers',
+        name='Receitas',
+        line=dict(color='#28a745', width=3),
+        marker=dict(size=8)
+    ))
+    
+    # Linha de despesas
+    fig.add_trace(go.Scatter(
+        x=meses_nomes,
+        y=despesas_valores,
+        mode='lines+markers',
+        name='Despesas',
+        line=dict(color='#dc3545', width=3),
+        marker=dict(size=8)
+    ))
+    
+    # Configurar layout
+    fig.update_layout(
+        title={
+            'text': '📉 Receitas vs Despesas - Evolução Mensal 2025',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 20}
+        },
+        xaxis_title='Mês',
+        yaxis_title='Valor (R$)',
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        height=500
+    )
+    
+    # Exibir gráfico
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Mostrar resumo
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        total_receitas = sum(receitas_valores)
+        st.metric("💰 Total de Receitas", f"R$ {total_receitas:,.2f}")
+    
+    with col2:
+        total_despesas = sum(despesas_valores)
+        st.metric("💸 Total de Despesas", f"R$ {total_despesas:,.2f}")
+    
+    with col3:
+        saldo = total_receitas - total_despesas  # Agora despesas são positivas, então subtraímos
+        st.metric("⚖️ Saldo Líquido", f"R$ {saldo:,.2f}", 
+                 delta_color="normal" if saldo >= 0 else "inverse")
+
+
+def criar_grafico_despesas_classificacao(dados_completos):
+    """Cria gráficos de barras individuais para cada classificação de despesas"""
+    from datetime import datetime
+    import pandas as pd
+    
+    # Carregar classificações
+    classificacoes = carregar_classificacoes()
+    
+    # Subcategorias de despesas
+    subcategorias_despesas = [
+        "IMPOSTOS",
+        "FOLHA CLT", 
+        "FOLHA PJ",
+        "ENCARGOS",
+        "ADMINISTRATIVA",
+        "ASSESSORIA JURIDICA",
+        "ASSESSORIA CONTABIL",
+        "DESPESAS FINANCEIRAS",
+        "DESPESAS COMERCIAIS",
+        "SOFTWARE",
+        "PMT EMPRESTIMOS",
+        "INVESTIMENTOS",
+        "DESPESAS IMÓVEL",
+        "ADIANTAMENTO A FORNECEDORES"
+    ]
+    
+    # Organizar dados por classificação e mês
+    despesas_por_classificacao = {}
+    for classificacao in subcategorias_despesas:
+        despesas_por_classificacao[classificacao] = {i: 0.0 for i in range(1, 13)}
+    
+    # Processar cada registro
+    for registro in dados_completos:
+        if len(registro) >= 3:
+            data, descricao, valor = registro[0], registro[1], registro[2]
+            
+            # Extrair mês da data
+            try:
+                if isinstance(data, datetime):
+                    mes = data.month
+                elif isinstance(data, str):
+                    for formato in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
+                        try:
+                            data_convertida = datetime.strptime(data, formato)
+                            mes = data_convertida.month
+                            break
+                        except:
+                            continue
+                    else:
+                        mes = 1
+                else:
+                    mes = 1
+                
+                # Converter valor para float
+                if isinstance(valor, str):
+                    valor_limpo = re.sub(r'[^\d,.\-]', '', str(valor))
+                    valor_limpo = valor_limpo.replace(',', '.')
+                    try:
+                        valor_float = float(valor_limpo)
+                    except:
+                        valor_float = 0.0
+                else:
+                    valor_float = float(valor) if valor else 0.0
+                
+                # Classificar
+                info_classificacao = classificacoes.get(str(descricao).strip(), "NÃO CLASSIFICADO")
+                
+                if isinstance(info_classificacao, dict):
+                    classificacao_desc = info_classificacao.get('classificacao', 'NÃO CLASSIFICADO')
+                else:
+                    classificacao_desc = info_classificacao
+                
+                if classificacao_desc in subcategorias_despesas:
+                    despesas_por_classificacao[classificacao_desc][mes] += valor_float
+                    
+            except Exception as e:
+                continue
+    
+    # Preparar dados para os gráficos
+    meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    # Cores para os gráficos
+    cores = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
+        '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43',
+        '#C44569', '#F8B500', '#6C5CE7', '#FD79A8', '#FDCB6E'
+    ]
+    
+    # Filtrar apenas classificações com valores
+    classificacoes_com_dados = {}
+    for classificacao, valores_mes in despesas_por_classificacao.items():
+        total = sum(abs(valores_mes[i]) for i in range(1, 13))
+        if total > 0:
+            classificacoes_com_dados[classificacao] = valores_mes
+    
+    # GRÁFICO PRINCIPAL: Total das despesas mês a mês
+    if classificacoes_com_dados:
+        st.subheader("📊 Total Geral das Despesas - Evolução Mensal")
+        
+        # Calcular totais mensais de todas as despesas
+        totais_mensais = {i: 0.0 for i in range(1, 13)}
+        for classificacao, valores_mes in classificacoes_com_dados.items():
+            for mes in range(1, 13):
+                totais_mensais[mes] += abs(valores_mes[mes])
+        
+        # Preparar dados para o gráfico principal
+        valores_totais = [totais_mensais[i] for i in range(1, 13)]
+        
+        # Criar gráfico de barras principal
+        fig_principal = go.Figure()
+        
+        fig_principal.add_trace(go.Bar(
+            x=meses_nomes,
+            y=valores_totais,
+            name='Total Despesas',
+            marker_color='#dc3545',
+            text=[f'R$ {v:,.0f}' if v > 0 else '' for v in valores_totais],
+            textposition='outside'
+        ))
+        
+        # Configurar layout do gráfico principal
+        fig_principal.update_layout(
+            title={
+                'text': '💸 Total Geral das Despesas por Mês - 2025',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {'size': 20}
+            },
+            xaxis_title='Mês',
+            yaxis_title='Valor Total (R$)',
+            showlegend=False,
+            height=500,
+            margin=dict(t=80, b=60, l=60, r=60)
+        )
+        
+        # Exibir gráfico principal
+        st.plotly_chart(fig_principal, use_container_width=True)
+        
+        # Mostrar métricas do total geral
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            total_anual = sum(valores_totais)
+            st.metric("💰 Total Anual de Despesas", f"R$ {total_anual:,.2f}")
+        
+        with col2:
+            if valores_totais:
+                media_mensal = total_anual / 12
+                st.metric("📊 Média Mensal", f"R$ {media_mensal:,.2f}")
+            else:
+                st.metric("📊 Média Mensal", "R$ 0,00")
+        
+        with col3:
+            if valores_totais:
+                maior_mes = max(valores_totais)
+                mes_maior = meses_nomes[valores_totais.index(maior_mes)]
+                st.metric(f"📈 Maior Mês ({mes_maior})", f"R$ {maior_mes:,.2f}")
+            else:
+                st.metric("📈 Maior Mês", "R$ 0,00")
+        
+        # Separador antes dos gráficos individuais
+        st.markdown("---")
+        st.subheader("📋 Despesas Detalhadas por Classificação")
+        st.markdown("")
+    
+    # Criar gráficos individuais para cada classificação
+    if classificacoes_com_dados:
+        # Configurar layout em colunas (2 gráficos por linha)
+        num_graficos = len(classificacoes_com_dados)
+        num_colunas = 2
+        
+        # Calcular número de linhas necessárias
+        num_linhas = (num_graficos + num_colunas - 1) // num_colunas
+        
+        # Criar gráficos em pares (2 por linha)
+        classificacoes_lista = list(classificacoes_com_dados.items())
+        
+        for linha in range(num_linhas):
+            cols = st.columns(num_colunas)
+            
+            for col_idx in range(num_colunas):
+                grafico_idx = linha * num_colunas + col_idx
+                
+                if grafico_idx < len(classificacoes_lista):
+                    classificacao, valores_mes = classificacoes_lista[grafico_idx]
+                    
+                    with cols[col_idx]:
+                        # Preparar dados para este gráfico
+                        valores = [abs(valores_mes[i]) for i in range(1, 13)]
+                        
+                        # Criar gráfico de barras individual
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            x=meses_nomes,
+                            y=valores,
+                            name=classificacao,
+                            marker_color=cores[grafico_idx % len(cores)],
+                            text=[f'R$ {v:,.0f}' if v > 0 else '' for v in valores],
+                            textposition='outside'
+                        ))
+                        
+                        # Configurar layout do gráfico individual
+                        fig.update_layout(
+                            title={
+                                'text': f'{classificacao}',
+                                'x': 0.5,
+                                'xanchor': 'center',
+                                'font': {'size': 16}
+                            },
+                            xaxis_title='Mês',
+                            yaxis_title='Valor (R$)',
+                            showlegend=False,
+                            height=400,
+                            margin=dict(t=60, b=40, l=40, r=40)
+                        )
+                        
+                        # Exibir gráfico
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Mostrar total da classificação
+                        total_classificacao = sum(valores)
+                        st.metric(f"💰 Total {classificacao}", f"R$ {total_classificacao:,.2f}")
+            
+            # Adicionar linha de separação entre as linhas de gráficos (exceto a última)
+            if linha < num_linhas - 1:
+                st.markdown("---")
+    else:
+        st.warning("⚠️ Nenhuma despesa encontrada nas classificações.")
+    
+    # Mostrar tabela resumo
+    st.subheader("📋 Resumo por Classificação")
+    
+    resumo_data = []
+    for classificacao, valores_mes in despesas_por_classificacao.items():
+        total = sum(abs(valores_mes[i]) for i in range(1, 13))
+        if total > 0:
+            resumo_data.append({
+                'Classificação': classificacao,
+                'Total Anual': f"R$ {total:,.2f}",
+                'Média Mensal': f"R$ {total/12:,.2f}"
+            })
+    
+    # Ordenar por total decrescente
+    resumo_data.sort(key=lambda x: float(x['Total Anual'].replace('R$ ', '').replace(',', '')), reverse=True)
+    
+    # Exibir tabela
+    if resumo_data:
+        df_resumo = pd.DataFrame(resumo_data)
+        st.dataframe(df_resumo, use_container_width=True)
 
 
 def arquivos_disponiveis():
