@@ -366,6 +366,17 @@
     "classificacao": "DESPESAS FINANCEIRAS",
     "recorrencia": "N_RE"
   }
+  ,
+  "ORICOM DO BRASIL FA": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "N_RE"
+  }
+  ,
+  "TERESINHA DOS S": {
+    "classificacao": "ADMINISTRATIVA",
+    "recorrencia": "N_RE"
+  }
   
 
 }
+
