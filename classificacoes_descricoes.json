@@ -351,4 +351,21 @@
     "classificacao": "RECEITAS",
     "recorrencia": "N_RE"
   }
+,
+  "CBD II FUNDO DE I": {
+    "classificacao": "RECEITAS",
+    "recorrencia": "N_RE"
+  }
+,
+  "ENCARGOS LIMITE DE CRED ENCARGO": {
+    "classificacao": "DESPESAS FINANCEIRAS",
+    "recorrencia": "N_RE"
+  }
+  ,
+  "IOF S UTILIZACAO LIMITE": {
+    "classificacao": "DESPESAS FINANCEIRAS",
+    "recorrencia": "N_RE"
+  }
+  
+
 }
